@@ -3,562 +3,545 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-<title>🏎️ Cyber Racer: AI Co-Pilot</title>
+<title>🌌 Neon Odyssey: AI Generated Worlds</title>
 <style>
+    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap');
+    
     :root {
-        --neon-blue: #00f3ff;
-        --neon-pink: #ff0055;
-        --neon-green: #00ff9d;
-        --bg-dark: #050510;
-        --panel-bg: rgba(10, 15, 30, 0.85);
+        --primary: #00f3ff;
+        --accent: #ff0055;
+        --bg: #050510;
+        --glass: rgba(20, 25, 40, 0.9);
     }
-    * { box-sizing: border-box; user-select: none; -webkit-user-select: none; }
+    
     body {
-        margin: 0; overflow: hidden; background: var(--bg-dark);
-        color: #fff; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        margin: 0; overflow: hidden; background: var(--bg);
+        color: #fff; font-family: 'Cairo', sans-serif;
         height: 100vh; display: flex; align-items: center; justify-content: center;
     }
-    
-    /* UI Overlay */
+
+    /* --- UI Layer --- */
     #ui-layer {
         position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-        pointer-events: none; display: flex; flex-direction: column; justify-content: space-between;
-        padding: 15px; z-index: 10;
+        pointer-events: none; z-index: 10; display: flex; flex-direction: column;
     }
+
+    /* Screens (Login, Story, Game Over) */
+    .screen {
+        position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0,0,0,0.92); backdrop-filter: blur(10px);
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        z-index: 20; pointer-events: auto; transition: opacity 0.5s;
+    }
+    .hidden { opacity: 0; pointer-events: none; }
     
-    /* Login Screen */
-    #login-screen {
-        position: absolute; z-index: 100; top: 0; left: 0; width: 100%; height: 100%;
-        background: rgba(0,0,0,0.95); display: flex; flex-direction: column;
-        align-items: center; justify-content: center; text-align: center;
-        backdrop-filter: blur(10px); transition: opacity 0.5s;
-    }
     .panel {
-        background: #1a1a2e; border: 2px solid var(--neon-blue);
-        padding: 25px; border-radius: 15px; width: 90%; max-width: 400px;
-        box-shadow: 0 0 20px rgba(0, 243, 255, 0.2);
+        background: var(--glass); border: 1px solid var(--primary);
+        padding: 30px; border-radius: 20px; width: 90%; max-width: 500px;
+        text-align: center; box-shadow: 0 0 30px rgba(0, 243, 255, 0.15);
+        position: relative; overflow: hidden;
     }
-    input[type="text"], input[type="password"] {
-        width: 100%; padding: 12px; margin: 10px 0;
-        background: #0f0f1a; border: 1px solid #333; color: #fff;
-        border-radius: 8px; text-align: center; direction: ltr;
+    .panel::before {
+        content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 4px;
+        background: linear-gradient(90deg, var(--primary), var(--accent));
     }
-    button {
-        background: var(--neon-blue); color: #000; font-weight: bold;
-        border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer;
-        font-size: 16px; margin-top: 10px; width: 100%;
-        transition: 0.2s; text-transform: uppercase; letter-spacing: 1px;
+
+    h1, h2 { margin: 0 0 15px; text-transform: uppercase; letter-spacing: 2px; }
+    h1 { color: var(--primary); font-size: 2rem; }
+    p { color: #ccc; line-height: 1.6; margin-bottom: 20px; font-size: 1.1rem; }
+
+    input {
+        width: 100%; padding: 15px; background: #0a0a15; border: 1px solid #333;
+        color: #fff; border-radius: 8px; font-family: inherit; margin-bottom: 15px;
+        text-align: center; direction: ltr; font-size: 1rem;
     }
-    button:active { transform: scale(0.96); }
-    button.secondary { background: transparent; border: 1px solid #555; color: #aaa; }
     
-    /* Game Canvas */
+    button {
+        background: var(--primary); color: #000; border: none; padding: 15px 40px;
+        font-size: 1.2rem; font-weight: 900; border-radius: 8px; cursor: pointer;
+        transition: 0.3s; width: 100%; clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+    }
+    button:hover { transform: translateY(-3px); box-shadow: 0 10px 20px rgba(0, 243, 255, 0.3); }
+    button.secondary { background: transparent; border: 2px solid #333; color: #888; margin-top: 10px; }
+
+    /* Loading / AI Generation */
+    .loader {
+        border: 4px solid #111; border-top: 4px solid var(--primary);
+        border-radius: 50%; width: 40px; height: 40px;
+        animation: spin 1s linear infinite; margin: 20px auto;
+    }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+    /* In-Game HUD */
+    .hud {
+        padding: 20px; display: flex; justify-content: space-between; align-items: flex-start;
+        text-shadow: 0 2px 4px #000;
+    }
+    .stat { background: rgba(0,0,0,0.5); padding: 5px 15px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.1); }
+    .stat span { color: var(--primary); font-weight: bold; font-size: 1.2rem; }
+    
+    #level-title {
+        position: absolute; top: 15%; width: 100%; text-align: center;
+        font-size: 3rem; font-weight: 900; color: #fff; opacity: 0;
+        text-shadow: 0 0 20px var(--primary); pointer-events: none;
+        transition: 0.5s; transform: scale(0.8);
+    }
+    .show-title { opacity: 1 !important; transform: scale(1) !important; }
+
+    /* Canvas */
     canvas {
-        box-shadow: 0 0 50px rgba(0,0,0,0.5);
-        max-width: 100%; max-height: 100%;
-        border-left: 2px solid #222; border-right: 2px solid #222;
+        width: 100%; height: 100%; object-fit: cover;
     }
 
-    /* HUD Elements */
-    .hud-top { display: flex; justify-content: space-between; width: 100%; pointer-events: auto; }
-    .stat-box {
-        background: var(--panel-bg); border: 1px solid rgba(255,255,255,0.1);
-        padding: 8px 15px; border-radius: 8px; font-weight: bold;
-        text-shadow: 0 0 5px currentColor;
+    /* Touch Controls */
+    .touch-zone {
+        position: absolute; bottom: 0; height: 100%; width: 50%; z-index: 5;
     }
-    #health-bar-container {
-        width: 100px; height: 10px; background: #333; border-radius: 5px; margin-top: 5px; overflow: hidden;
-    }
-    #health-bar { width: 100%; height: 100%; background: var(--neon-green); transition: width 0.3s; }
-
-    /* AI Chat Interface */
-    #ai-comm {
-        position: absolute; top: 70px; left: 50%; transform: translateX(-50%);
-        width: 90%; max-width: 500px; pointer-events: none;
-        display: flex; flex-direction: column; align-items: center; gap: 8px;
-    }
-    .ai-msg {
-        background: rgba(0, 0, 0, 0.85); border-right: 4px solid var(--neon-blue);
-        padding: 10px 15px; border-radius: 4px 12px 12px 12px;
-        color: var(--neon-blue); font-size: 14px; line-height: 1.4;
-        animation: slideIn 0.4s ease-out; width: 100%;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-        position: relative;
-    }
-    .ai-avatar {
-        position: absolute; right: -10px; top: -10px; width: 24px; height: 24px;
-        background: var(--neon-blue); border-radius: 50%; display: grid; place-items: center;
-        font-size: 12px; color: #000; font-weight: bold; box-shadow: 0 0 10px var(--neon-blue);
-    }
-    .ai-loading { font-size: 10px; opacity: 0.7; letter-spacing: 2px; text-align: center; display: none; }
-
-    /* Controls Overlay for Mobile */
-    #touch-controls {
-        position: absolute; bottom: 0; left: 0; width: 100%; height: 50%;
-        display: flex; pointer-events: auto; opacity: 0;
-    }
-    .t-btn { flex: 1; } /* Left and Right touch zones */
-
-    @keyframes slideIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
-    .hidden { display: none !important; }
-    .glitch { color: var(--neon-pink); animation: shake 0.5s; }
-    @keyframes shake { 0% { transform: translate(1px, 1px); } 25% { transform: translate(-1px, -2px); } 75% { transform: translate(-3px, 0px); } }
+    #t-left { left: 0; } #t-right { right: 0; }
 
 </style>
 </head>
 <body>
 
-    <!-- Game Canvas -->
-    <canvas id="gameCanvas"></canvas>
-
-    <!-- UI Overlay -->
+    <!-- Game World -->
+    <canvas id="c"></canvas>
+    
     <div id="ui-layer">
-        <div class="hud-top">
-            <div class="stat-box" style="color:var(--neon-green)">
-                <div>المسافة: <span id="distVal">0</span>m</div>
-                <div>السرعة: <span id="speedVal">0</span> km/h</div>
+        <!-- HUD -->
+        <div class="hud" id="hud" style="opacity:0">
+            <div>
+                <div class="stat">المرحلة: <span id="lvl-display">1</span></div>
+                <div class="stat" style="margin-top:5px">التقدم: <span id="dist-display">0%</span></div>
             </div>
-            <div class="stat-box" style="color:var(--neon-pink); text-align:left">
-                <div>الدرع</div>
-                <div id="health-bar-container"><div id="health-bar"></div></div>
-            </div>
+            <div class="stat">الدرع: <span id="hp-display" style="color:var(--accent)">100%</span></div>
         </div>
 
-        <!-- AI Messages Area -->
-        <div id="ai-comm">
-            <div class="ai-loading">جاري تحليل البيانات...</div>
-            <div id="ai-messages"></div>
-        </div>
+        <!-- Dramatic Level Title -->
+        <h1 id="level-title">SYSTEM READY</h1>
 
-        <div style="text-align:center; margin-bottom: 20px; opacity: 0.6; font-size: 12px;">
-            انقر يسار/يمين الشاشة أو استخدم الأسهم للتحكم
-        </div>
+        <!-- Touch Controls -->
+        <div class="touch-zone" id="t-left"></div>
+        <div class="touch-zone" id="t-right"></div>
     </div>
 
-    <!-- Login / API Key Screen -->
-    <div id="login-screen">
+    <!-- 1. API Key Screen -->
+    <div id="screen-login" class="screen">
         <div class="panel">
-            <h1 style="margin:0 0 15px; color:var(--neon-blue)">🏎️ Cyber AI Racer</h1>
-            <p style="font-size:13px; color:#ccc; line-height:1.6">
-                هذه اللعبة تستخدم نموذج <b>Gemini Pro</b> ليكون مساعدك الشخصي أثناء القيادة.
-                البيانات (السرعة، الحوادث) تُرسل للنموذج لتوليد تعليقات حية.
-            </p>
-            
-            <div id="key-input-area">
-                <input type="password" id="apiKeyInput" placeholder="الصق مفتاح API الخاص بـ Google AI هنا">
-                <button onclick="saveKeyAndStart()">اتصال وبدء اللعب</button>
-                <p style="font-size:10px; margin-top:10px; opacity:0.5">يتم حفظ المفتاح في متصفحك فقط ولا يرسل لأي سيرفر خارجي.</p>
-            </div>
+            <h1>Neon Odyssey</h1>
+            <p>لعبة سباق متولدة ذاتياً (Procedural AI).<br>كل مرحلة يصممها الذكاء الاصطناعي خصيصاً لك.</p>
+            <input type="password" id="api-key" placeholder="ألصق مفتاح Gemini API هنا">
+            <button onclick="Auth.save()">اتصال بالنظام</button>
+            <p style="font-size:0.8rem; margin-top:15px; opacity:0.5">يتم حفظ المفتاح محلياً في جهازك فقط.</p>
+        </div>
+    </div>
 
-            <div id="start-btn-area" class="hidden">
-                <p style="color:var(--neon-green)">✅ المفتاح محفوظ</p>
-                <button onclick="startGame()">انطلق!</button>
-                <button class="secondary" onclick="resetKey()">تغيير المفتاح</button>
+    <!-- 2. Story / Loading Screen -->
+    <div id="screen-story" class="screen hidden">
+        <div class="panel">
+            <h2 id="story-title" style="color:var(--primary)">جاري تحليل البيانات...</h2>
+            <p id="story-text">يقوم الذكاء الاصطناعي ببناء العالم الآن...</p>
+            
+            <div id="ai-loading" class="loader"></div>
+            
+            <div id="story-actions" class="hidden">
+                <button onclick="Game.startLevel()">ابدأ المهمة</button>
             </div>
         </div>
     </div>
 
-    <!-- Touch Zones -->
-    <div id="touch-controls">
-        <div class="t-btn" id="btnLeft"></div>
-        <div class="t-btn" id="btnRight"></div>
+    <!-- 3. Game Over Screen -->
+    <div id="screen-over" class="screen hidden">
+        <div class="panel">
+            <h2 style="color:var(--accent)">تحطمت المركبة</h2>
+            <p id="death-reason">انتهت الرحلة.</p>
+            <button onclick="Game.resetCampaign()">إعادة التشغيل</button>
+        </div>
     </div>
 
 <script>
-/**
- * CYBER RACER AI
- * لعبة سباق مربوطة بـ Google Gemini API
+(function() {
+/*
+ * SYSTEM ARCHITECTURE
+ * 1. AI Service: Handles Gemini API calls & JSON parsing.
+ * 2. Level Manager: Interprets JSON to set physics, colors, and rules.
+ * 3. Game Engine: Rendering, Physics, Loop.
+ * 4. UI/Auth: Manages screens and persistence.
  */
 
-// --- إعدادات النظام ---
-const CONFIG = {
-    canvasW: 480,
-    canvasH: 800,
-    laneCount: 4,
-    gravity: 0.5,
-    maxSpeed: 200,
-    aiInterval: 8000 // استدعاء الذكاء الاصطناعي كل 8 ثواني
-};
-
-// --- حالة اللعبة ---
-let state = {
-    running: false,
-    apiKey: '',
-    score: 0,
-    distance: 0,
-    speed: 0,
-    health: 100,
-    playerX: 0,
-    lanes: [],
-    cars: [],
-    particles: [],
-    lastAiCall: 0,
-    lastEvent: "بداية السباق",
-    isGameOver: false
-};
-
-// --- عناصر DOM ---
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
-const uiDist = document.getElementById('distVal');
-const uiSpeed = document.getElementById('speedVal');
-const uiHealth = document.getElementById('health-bar');
-const aiMsgContainer = document.getElementById('ai-messages');
-const aiLoading = document.querySelector('.ai-loading');
-
-// --- تهيئة الكانفاس ---
-function resize() {
-    let scale = Math.min(window.innerWidth / CONFIG.canvasW, window.innerHeight / CONFIG.canvasH);
-    canvas.width = CONFIG.canvasW;
-    canvas.height = CONFIG.canvasH;
-    canvas.style.transform = `scale(${Math.min(1, scale)})`;
+/* --- 1. AI Service --- */
+const AI = {
+    key: null,
     
-    // حساب مراكز الحارات
-    state.lanes = [];
-    let laneW = CONFIG.canvasW / CONFIG.laneCount;
-    for(let i=0; i<CONFIG.laneCount; i++) state.lanes.push(laneW * i + laneW/2);
-}
-window.addEventListener('resize', resize);
-resize();
+    // التلقين (Prompt) الذي يجبر النموذج على تصميم مرحلة
+    generateLevelPrompt: (levelNum, hp) => `
+    Context: You are the Game Director for a Cyberpunk racing game.
+    Current State: Player is at Level ${levelNum}, Health ${hp}%.
+    Task: Generate the next level parameters in valid JSON format ONLY.
+    
+    Requirements:
+    1. "theme_name": Creative Arabic title (e.g., "صحراء النيون", "النفق المظلم").
+    2. "intro_text": 2 sentences in Arabic setting the scene (e.g., "Detected slippery roads ahead.").
+    3. "colors": Hex codes for "road", "sky", "lines", "obstacle".
+    4. "physics":
+       - "speed_mult": 1.0 to 1.8 (float)
+       - "friction": 0.85 (slippery) to 0.98 (grippy)
+       - "visibility": 0 to 1 (1 is clear, 0.3 is foggy)
+    5. "level_length": 3000 to 8000 (meters).
+    6. "density": 0.5 to 2.0 (obstacle spawn rate).
 
-// --- إدارة المفتاح (Auth) ---
-function initAuth() {
-    const savedKey = localStorage.getItem('gemini_api_key');
-    if (savedKey) {
-        state.apiKey = savedKey;
-        document.getElementById('key-input-area').classList.add('hidden');
-        document.getElementById('start-btn-area').classList.remove('hidden');
+    Output Example:
+    {
+      "theme_name": "العاصفة الرقمية",
+      "intro_text": "احذر، الطريق زلق للغاية والرؤية معدومة.",
+      "colors": {"road": "#222", "sky": "#000", "lines": "#0f0", "obstacle": "#f00"},
+      "physics": {"speed_mult": 1.2, "friction": 0.9, "visibility": 0.5},
+      "level_length": 4000,
+      "density": 1.2
     }
-}
+    `,
 
-function saveKeyAndStart() {
-    const input = document.getElementById('apiKeyInput').value.trim();
-    if (input.length < 10) { alert('الرجاء إدخال مفتاح صحيح'); return; }
-    localStorage.setItem('gemini_api_key', input);
-    state.apiKey = input;
-    startGame();
-}
+    async fetchNextLevel(levelNum, hp) {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${this.key}`;
+        
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: this.generateLevelPrompt(levelNum, hp) }] }],
+                    generationConfig: { responseMimeType: "application/json" }
+                })
+            });
+            const data = await response.json();
+            const text = data.candidates[0].content.parts[0].text;
+            return JSON.parse(text); // تحويل النص إلى كائن برمجي
+        } catch (e) {
+            console.error("AI Generation Failed", e);
+            // Fallback level in case of error
+            return {
+                theme_name: "وضع الطوارئ",
+                intro_text: "فقدنا الاتصال بالخادم. قم بالقيادة يدوياً.",
+                colors: {road: "#111", sky: "#050510", lines: "#fff", obstacle: "#f00"},
+                physics: {speed_mult: 1, friction: 0.95, visibility: 1},
+                level_length: 3000,
+                density: 1
+            };
+        }
+    }
+};
 
-function resetKey() {
-    localStorage.removeItem('gemini_api_key');
-    location.reload();
-}
+/* --- 2. Auth & UI --- */
+const Auth = {
+    init() {
+        const key = localStorage.getItem('gemini_key');
+        if (key) {
+            AI.key = key;
+            document.getElementById('screen-login').classList.add('hidden');
+            Game.initCampaign();
+        }
+    },
+    save() {
+        const input = document.getElementById('api-key').value.trim();
+        if (input.length < 10) return alert('مفتاح غير صحيح');
+        localStorage.setItem('gemini_key', input);
+        AI.key = input;
+        document.getElementById('screen-login').classList.add('hidden');
+        Game.initCampaign();
+    },
+    reset() {
+        localStorage.removeItem('gemini_key');
+        location.reload();
+    }
+};
 
-// --- محرك الذكاء الاصطناعي (Gemini API) ---
-async function callGeminiAI() {
-    if (!state.running || state.isGameOver) return;
+// Expose Auth to global scope for HTML onclick events
+window.Auth = Auth;
+
+/* --- 3. Game Engine --- */
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+let W, H, scale;
+
+const Game = {
+    level: 1,
+    hp: 100,
+    state: 'MENU', // MENU, LOADING, PLAYING, GAMEOVER
+    currentLevelData: null,
     
-    aiLoading.style.display = 'block';
-
-    // صياغة السياق (Context)
-    const context = `
-    أنت مساعد ذكي "Co-pilot" في لعبة سباق سيارات سريعة.
-    الحالة الحالية:
-    - السرعة: ${Math.floor(state.speed)} كم/س
-    - صحة المركبة: ${Math.floor(state.health)}%
-    - المسافة المقطوعة: ${Math.floor(state.distance)} متر
-    - آخر حدث: ${state.lastEvent}
+    // Physics & World
+    lanes: [],
+    player: { x: 0, y: 0, w: 50, h: 90, lane: 1, targetX: 0 },
+    obstacles: [],
+    particles: [],
+    speed: 0,
+    distance: 0,
+    globalSpeed: 0, // Road scroll speed
     
-    المطلوب: جملة واحدة قصيرة جداً (أقل من 15 كلمة) باللهجة العربية أو المصرية.
-    الأسلوب: ${state.health < 30 ? 'قلق جداً وتحذيري' : 'حماسي، ساخر، أو مشجع'}.
-    لا تستخدم مقدمات، ادخل في صلب الموضوع فوراً.
-    `;
+    resize() {
+        W = canvas.width = window.innerWidth;
+        H = canvas.height = window.innerHeight;
+        scale = Math.min(W/480, 1);
+        Game.lanes = [W*0.25, W*0.5, W*0.75]; // 3 Lanes
+    },
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${state.apiKey}`;
-    
-    try {
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                contents: [{ parts: [{ text: context }] }]
-            })
-        });
+    initCampaign() {
+        Game.level = 1;
+        Game.hp = 100;
+        Game.loadNextLevel();
+    },
 
-        const data = await response.json();
-        aiLoading.style.display = 'none';
+    async loadNextLevel() {
+        Game.state = 'LOADING';
+        
+        // UI Setup
+        const storyScreen = document.getElementById('screen-story');
+        storyScreen.classList.remove('hidden');
+        document.getElementById('ai-loading').style.display = 'block';
+        document.getElementById('story-actions').classList.add('hidden');
+        document.getElementById('story-title').innerText = `تحميل المرحلة ${Game.level}`;
+        document.getElementById('story-text').innerText = "جاري الاتصال بالقمر الصناعي لتوليد التضاريس...";
 
-        if (data.error) {
-            console.error(data.error);
-            showAiMessage("فقدت الاتصال بالخادم... ركز في الطريق!", true);
+        // Call AI
+        const levelData = await AI.fetchNextLevel(Game.level, Game.hp);
+        Game.currentLevelData = levelData;
+
+        // Apply Data
+        document.getElementById('story-title').innerText = levelData.theme_name;
+        document.getElementById('story-text').innerText = levelData.intro_text;
+        document.getElementById('ai-loading').style.display = 'none';
+        document.getElementById('story-actions').classList.remove('hidden');
+        
+        // Reset Game State for new level
+        Game.distance = 0;
+        Game.speed = 0;
+        Game.obstacles = [];
+        Game.player.lane = 1;
+        Game.player.targetX = Game.lanes[1];
+        Game.player.x = Game.lanes[1];
+    },
+
+    startLevel() {
+        document.getElementById('screen-story').classList.add('hidden');
+        document.getElementById('hud').style.opacity = 1;
+        
+        // Show Title Animation
+        const titleEl = document.getElementById('level-title');
+        titleEl.innerText = Game.currentLevelData.theme_name;
+        titleEl.style.color = Game.currentLevelData.colors.lines;
+        titleEl.classList.add('show-title');
+        setTimeout(() => titleEl.classList.remove('show-title'), 3000);
+
+        Game.state = 'PLAYING';
+        Game.loop();
+    },
+
+    resetCampaign() {
+        document.getElementById('screen-over').classList.add('hidden');
+        Game.initCampaign();
+    },
+
+    move(dir) {
+        if (Game.state !== 'PLAYING') return;
+        const next = Game.player.lane + dir;
+        if (next >= 0 && next < Game.lanes.length) {
+            Game.player.lane = next;
+            Game.player.targetX = Game.lanes[next];
+        }
+    },
+
+    // --- MAIN LOOP ---
+    loop() {
+        if (Game.state !== 'PLAYING') return;
+
+        // 1. Update Physics
+        const physics = Game.currentLevelData.physics;
+        
+        // Accelerate
+        const maxSpeed = 20 * physics.speed_mult;
+        if (Game.speed < maxSpeed) Game.speed += 0.1;
+        Game.globalSpeed = Game.speed * 2; // For scrolling
+        Game.distance += Game.globalSpeed * 0.1;
+
+        // Player Movement (Lerp for friction feel)
+        Game.player.x += (Game.player.targetX - Game.player.x) * (1 - physics.friction + 0.05);
+
+        // Spawn Obstacles
+        const density = Game.currentLevelData.density;
+        if (Math.random() < 0.02 * density) {
+            Game.obstacles.push({
+                lane: Math.floor(Math.random() * 3),
+                y: -100,
+                type: Math.random() > 0.8 ? 'block' : 'car'
+            });
+        }
+
+        // Update Obstacles
+        for (let i = Game.obstacles.length - 1; i >= 0; i--) {
+            let o = Game.obstacles[i];
+            o.y += Game.globalSpeed * 0.8; // Move down
+            o.x = Game.lanes[o.lane];
+
+            // Collision
+            if (Math.abs(o.y - (H - 150)) < 60 && Math.abs(o.x - Game.player.x) < 40) {
+                Game.hp -= 20;
+                Game.speed *= 0.5;
+                Game.createParticles(o.x, o.y, Game.currentLevelData.colors.obstacle);
+                Game.obstacles.splice(i, 1);
+                
+                // Shake Effect
+                document.body.style.transform = `translate(${Math.random()*10-5}px, ${Math.random()*10-5}px)`;
+                setTimeout(()=>document.body.style.transform='none', 200);
+
+                if (Game.hp <= 0) {
+                    Game.state = 'GAMEOVER';
+                    document.getElementById('screen-over').classList.remove('hidden');
+                    document.getElementById('death-reason').innerText = `وصلت للمرحلة ${Game.level} - ${Game.currentLevelData.theme_name}`;
+                }
+            }
+
+            if (o.y > H) Game.obstacles.splice(i, 1);
+        }
+
+        // Check Win Condition
+        const progress = Math.min(100, (Game.distance / Game.currentLevelData.level_length) * 100);
+        document.getElementById('dist-display').innerText = Math.floor(progress) + '%';
+        
+        if (Game.distance >= Game.currentLevelData.level_length) {
+            Game.level++;
+            Game.loadNextLevel();
             return;
         }
 
-        const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (text) showAiMessage(text);
+        // 2. Render
+        Game.draw();
 
-    } catch (e) {
-        console.error(e);
-        aiLoading.style.display = 'none';
-    }
-}
+        requestAnimationFrame(Game.loop);
+    },
 
-function showAiMessage(text, isError=false) {
-    const msgDiv = document.createElement('div');
-    msgDiv.className = 'ai-msg';
-    if(isError) msgDiv.style.borderColor = 'red';
-    
-    msgDiv.innerHTML = `
-        <div class="ai-avatar">AI</div>
-        ${text}
-    `;
-    
-    // إزالة الرسائل القديمة
-    while(aiMsgContainer.children.length > 1) {
-        aiMsgContainer.removeChild(aiMsgContainer.firstChild);
-    }
-    
-    aiMsgContainer.appendChild(msgDiv);
-    
-    // اختفاء تلقائي
-    setTimeout(() => {
-        if(msgDiv.parentNode) {
-            msgDiv.style.opacity = '0';
-            setTimeout(() => msgDiv.remove(), 500);
+    draw() {
+        const colors = Game.currentLevelData.colors;
+        const phys = Game.currentLevelData.physics;
+
+        // Clear & Background
+        ctx.fillStyle = colors.sky;
+        ctx.fillRect(0, 0, W, H);
+
+        // Road with Perspective
+        ctx.fillStyle = colors.road;
+        const roadW = W * 0.9;
+        const roadX = (W - roadW) / 2;
+        ctx.fillRect(roadX, 0, roadW, H);
+
+        // Moving Grid / Lines
+        ctx.strokeStyle = colors.lines;
+        ctx.lineWidth = 2;
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = colors.lines;
+
+        let offset = (Date.now() * Game.speed * 0.1) % 100;
+        
+        // Vertical Lanes
+        Game.lanes.forEach(x => {
+            ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+        });
+
+        // Horizontal Grid (Retro effect)
+        for(let i=0; i<H; i+=80) {
+            let y = (i + offset) % H;
+            ctx.globalAlpha = (y / H); // Fade at top
+            ctx.beginPath(); ctx.moveTo(roadX, y); ctx.lineTo(roadX+roadW, y); ctx.stroke();
         }
-    }, 6000);
-}
+        ctx.globalAlpha = 1;
 
-// --- منطق اللعبة ---
+        // Player
+        ctx.shadowColor = varPrimary;
+        ctx.fillStyle = '#000';
+        ctx.strokeStyle = varPrimary;
+        const px = Game.player.x;
+        const py = H - 150;
+        
+        // Neon Car
+        ctx.beginPath();
+        ctx.moveTo(px, py);
+        ctx.lineTo(px - 20, py + 80); // Left Back
+        ctx.lineTo(px + 20, py + 80); // Right Back
+        ctx.closePath();
+        ctx.fill(); ctx.stroke();
+        
+        // Engine Flame
+        if(Math.random() > 0.5) {
+            ctx.fillStyle = varAccent;
+            ctx.fillRect(px - 5, py + 80, 10, Math.random() * 20);
+        }
 
-function startGame() {
-    document.getElementById('login-screen').classList.add('hidden');
-    
-    // إعادة تعيين القيم
-    state.running = true;
-    state.isGameOver = false;
-    state.score = 0;
-    state.distance = 0;
-    state.speed = 0;
-    state.health = 100;
-    state.playerX = state.lanes[1];
-    state.cars = [];
-    state.particles = [];
-    state.lastAiCall = Date.now();
-    state.lastEvent = "انطلاق السباق";
-    
-    showAiMessage("أنظمتي تعمل. المحرك جاهز. وريني شطارتك يا بطل!");
-    
-    requestAnimationFrame(loop);
-}
+        // Obstacles
+        Game.obstacles.forEach(o => {
+            ctx.fillStyle = colors.obstacle;
+            ctx.shadowColor = colors.obstacle;
+            if (o.type === 'block') {
+                ctx.fillRect(o.x - 25, o.y, 50, 50);
+            } else {
+                ctx.beginPath(); ctx.moveTo(o.x, o.y+60); ctx.lineTo(o.x-20, o.y); ctx.lineTo(o.x+20, o.y); ctx.fill();
+            }
+        });
 
-function gameOver() {
-    state.running = false;
-    state.isGameOver = true;
-    state.lastEvent = "تحطم السيارة وانتهاء السباق";
-    callGeminiAI(); // تعليق أخير
-    
-    setTimeout(() => {
-        alert(`Game Over! المسافة: ${Math.floor(state.distance)}m`);
-        document.getElementById('login-screen').classList.remove('hidden');
-        document.getElementById('key-input-area').classList.add('hidden');
-        document.getElementById('start-btn-area').classList.remove('hidden');
-    }, 2000);
-}
+        // Particles
+        Game.particles.forEach((p, i) => {
+            p.x += p.vx; p.y += p.vy; p.life -= 0.05;
+            ctx.globalAlpha = p.life;
+            ctx.fillStyle = p.color;
+            ctx.fillRect(p.x, p.y, 4, 4);
+            if(p.life <=0) Game.particles.splice(i, 1);
+        });
+        ctx.globalAlpha = 1;
 
-// التحكم
-let targetX = state.lanes ? state.lanes[1] : 240;
-function move(dir) {
-    let currentLaneIdx = state.lanes.findIndex(x => Math.abs(x - targetX) < 10);
-    if (currentLaneIdx === -1) currentLaneIdx = 1; // Fallback
-    
-    let newIdx = currentLaneIdx + dir;
-    if (newIdx >= 0 && newIdx < state.lanes.length) {
-        targetX = state.lanes[newIdx];
+        // Fog / Visibility
+        if (phys.visibility < 1) {
+            const grad = ctx.createLinearGradient(0, 0, 0, H);
+            grad.addColorStop(0, colors.sky);
+            grad.addColorStop(phys.visibility, "transparent");
+            ctx.fillStyle = grad;
+            ctx.fillRect(0,0,W,H);
+        }
+        
+        // HUD Updates
+        document.getElementById('lvl-display').innerText = Game.level;
+        document.getElementById('hp-display').innerText = Game.hp + '%';
+        document.getElementById('hp-display').style.color = Game.hp < 30 ? '#f00' : '#0f0';
+    },
+
+    createParticles(x, y, color) {
+        for(let i=0; i<15; i++) {
+            Game.particles.push({
+                x: x, y: y,
+                vx: (Math.random() - 0.5) * 10,
+                vy: (Math.random() - 0.5) * 10,
+                life: 1.0, color: color
+            });
+        }
     }
-}
+};
 
-document.addEventListener('keydown', (e) => {
-    if (!state.running) return;
-    if (e.key === 'ArrowLeft') move(-1);
-    if (e.key === 'ArrowRight') move(1);
+// Expose Game to global scope
+window.Game = Game;
+
+// --- Inputs ---
+window.addEventListener('resize', Game.resize);
+Game.resize();
+
+const varPrimary = getComputedStyle(document.body).getPropertyValue('--primary').trim();
+const varAccent = getComputedStyle(document.body).getPropertyValue('--accent').trim();
+
+document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowLeft') Game.move(-1);
+    if (e.key === 'ArrowRight') Game.move(1);
 });
 
-// اللمس
-document.getElementById('btnLeft').addEventListener('touchstart', (e) => { e.preventDefault(); move(-1); });
-document.getElementById('btnRight').addEventListener('touchstart', (e) => { e.preventDefault(); move(1); });
+document.getElementById('t-left').addEventListener('touchstart', (e) => { e.preventDefault(); Game.move(-1); });
+document.getElementById('t-right').addEventListener('touchstart', (e) => { e.preventDefault(); Game.move(1); });
 
-// فئة السيارة المعادية
-class Car {
-    constructor() {
-        this.lane = Math.floor(Math.random() * CONFIG.laneCount);
-        this.x = state.lanes[this.lane];
-        this.y = -100;
-        this.w = 50;
-        this.h = 90;
-        this.speed = 2 + Math.random() * 3;
-        this.color = ['#ff0055', '#ff9900', '#ffff00'][Math.floor(Math.random()*3)];
-    }
-    update(speedFactor) {
-        this.y += (state.speed * speedFactor) - this.speed;
-    }
-    draw() {
-        ctx.shadowBlur = 10;
-        ctx.shadowColor = this.color;
-        ctx.fillStyle = this.color;
-        ctx.fillRect(this.x - this.w/2, this.y, this.w, this.h);
-        
-        // تفاصيل السيارة
-        ctx.fillStyle = '#000';
-        ctx.fillRect(this.x - this.w/2 + 5, this.y + 10, this.w - 10, 15); // زجاج خلفي
-        ctx.fillRect(this.x - this.w/2 + 5, this.y + 60, this.w - 10, 10); // زجاج أمامي
-        ctx.shadowBlur = 0;
-    }
-}
-
-// الجسيمات (انفجارات)
-class Particle {
-    constructor(x, y, color) {
-        this.x = x; this.y = y;
-        this.vx = (Math.random() - 0.5) * 10;
-        this.vy = (Math.random() - 0.5) * 10;
-        this.life = 1.0;
-        this.color = color;
-    }
-    update() {
-        this.x += this.vx; this.y += this.vy;
-        this.life -= 0.05;
-    }
-    draw() {
-        ctx.globalAlpha = this.life;
-        ctx.fillStyle = this.color;
-        ctx.beginPath(); ctx.arc(this.x, this.y, 3, 0, Math.PI*2); ctx.fill();
-        ctx.globalAlpha = 1;
-    }
-}
-
-// حلقة اللعبة الرئيسية
-function loop() {
-    if (!state.running) return;
-    
-    // تحديث الفيزياء
-    // حركة ناعمة للاعب
-    state.playerX += (targetX - state.playerX) * 0.15;
-    
-    // تسارع
-    if (state.speed < CONFIG.maxSpeed) state.speed += 0.1;
-    state.distance += state.speed * 0.01;
-    
-    // توليد الأعداء
-    if (Math.random() < 0.02 && state.speed > 20) {
-        // تأكد من عدم وجود سيارة قريبة جداً في نفس الحارة
-        let lane = Math.floor(Math.random() * CONFIG.laneCount);
-        let safe = true;
-        for(let c of state.cars) {
-            if (c.lane === lane && c.y < 200) safe = false;
-        }
-        if (safe) state.cars.push(new Car());
-    }
-    
-    // تحديث الأعداء
-    for (let i = state.cars.length - 1; i >= 0; i--) {
-        let c = state.cars[i];
-        c.update(0.05); // حركة نسبية
-        
-        // تصادم
-        if (
-            Math.abs(state.playerX - c.x) < 40 &&
-            c.y > CONFIG.canvasH - 180 && c.y < CONFIG.canvasH - 80
-        ) {
-            // حدث تصادم
-            state.health -= 20;
-            state.speed *= 0.6; // تباطؤ مفاجئ
-            state.lastEvent = "اصطدام عنيف بسيارة منافسة";
-            
-            // تأثيرات
-            for(let k=0; k<10; k++) state.particles.push(new Particle(c.x, c.y + 40, c.color));
-            
-            state.cars.splice(i, 1);
-            
-            // اهتزاز الشاشة
-            document.body.classList.add('glitch');
-            setTimeout(()=>document.body.classList.remove('glitch'), 500);
-            
-            // استدعاء فوري للذكاء الاصطناعي عند الاصطدام
-            if (Date.now() - state.lastAiCall > 3000) {
-                state.lastAiCall = Date.now();
-                callGeminiAI();
-            }
-            
-            if (state.health <= 0) gameOver();
-            continue;
-        }
-        
-        // إزالة السيارات القديمة
-        if (c.y > CONFIG.canvasH) state.cars.splice(i, 1);
-    }
-    
-    // تحديث الجسيمات
-    for (let i = state.particles.length - 1; i >= 0; i--) {
-        state.particles[i].update();
-        if (state.particles[i].life <= 0) state.particles.splice(i, 1);
-    }
-    
-    // استدعاء دوري للذكاء الاصطناعي
-    if (Date.now() - state.lastAiCall > CONFIG.aiInterval) {
-        state.lastEvent = state.speed > 150 ? "قيادة بسرعة جنونية" : "قيادة مستقرة";
-        state.lastAiCall = Date.now();
-        callGeminiAI();
-    }
-    
-    // رسم الخلفية والطريق
-    ctx.fillStyle = '#050510';
-    ctx.fillRect(0, 0, CONFIG.canvasW, CONFIG.canvasH);
-    
-    // خطوط الطريق المتحركة
-    ctx.strokeStyle = 'rgba(0, 243, 255, 0.1)';
-    ctx.lineWidth = 2;
-    let offset = (Date.now() * state.speed * 0.005) % 100;
-    
-    // رسم الحارات
-    for (let x of state.lanes) {
-        ctx.beginPath();
-        ctx.moveTo(x - 60, 0); ctx.lineTo(x - 60, CONFIG.canvasH); // خط يسار الحارة
-        ctx.stroke();
-        
-        // خطوط الوسط المتقطعة
-        ctx.fillStyle = 'rgba(255,255,255,0.2)';
-        if (x !== state.lanes[state.lanes.length-1]) {
-             for (let y = -100; y < CONFIG.canvasH; y += 100) {
-                ctx.fillRect(x + 58, y + offset, 4, 40);
-            }
-        }
-    }
-
-    // رسم اللاعب
-    ctx.save();
-    ctx.translate(state.playerX, CONFIG.canvasH - 120);
-    // ظل
-    ctx.shadowBlur = 20; ctx.shadowColor = '#00f3ff';
-    // جسم السيارة
-    ctx.fillStyle = '#111';
-    ctx.beginPath(); ctx.roundRect(-25, 0, 50, 90, 10); ctx.fill();
-    // تفاصيل نيون
-    ctx.strokeStyle = '#00f3ff'; ctx.lineWidth = 3;
-    ctx.stroke();
-    // محرك خلفي
-    ctx.fillStyle = '#00f3ff';
-    ctx.fillRect(-15, 85, 10, 5); ctx.fillRect(5, 85, 10, 5);
-    ctx.restore();
-    
-    // رسم الأعداء
-    state.cars.forEach(c => c.draw());
-    
-    // رسم الجسيمات
-    state.particles.forEach(p => p.draw());
-    
-    // تحديث الواجهة
-    uiDist.textContent = Math.floor(state.distance);
-    uiSpeed.textContent = Math.floor(state.speed);
-    uiHealth.style.width = Math.max(0, state.health) + '%';
-    uiHealth.style.background = state.health < 30 ? 'red' : '#00ff9d';
-    
-    requestAnimationFrame(loop);
-}
-
-// البداية
-initAuth();
-
+Auth.init();
+})();
 </script>
 </body>
 </html>
