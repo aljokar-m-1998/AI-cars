@@ -2,376 +2,563 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1" />
-<title>🏁 سباق سيارات بالذكاء الاصطناعي</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+<title>🏎️ Cyber Racer: AI Co-Pilot</title>
 <style>
-  :root { --w: 480px; --h: 720px; }
-  * { box-sizing: border-box }
-  body {
-    margin: 0; background:#0e0e10; color:#fff; font-family: system-ui, Arial, sans-serif;
-    min-height:100vh; display:flex; align-items:center; justify-content:center; padding:12px;
-  }
-  .wrap { display:flex; flex-direction:column; align-items:center; gap:12px; width:100% }
-  h1 { margin:0; font-weight:800; letter-spacing:.5px }
-  canvas {
-    width: min(var(--w), 95vw);
-    height: calc(min(var(--w), 95vw) * (3/2));   /* يحافظ على الأبعاد 480x720 تقريباً */
-    max-height: 95vh; background:#1b1b1f; border:4px solid #2f2f36; border-radius:16px;
-    touch-action:none;
-  }
-  .menu, .hud, .controls { width:min(var(--w),95vw); }
-  .menu {
-    background:#1b1b20; border:1px solid #2a2a31; border-radius:16px; padding:16px; text-align:center;
-  }
-  .menu p { opacity:.9; margin:8px 0 14px }
-  .row { display:flex; gap:8px; justify-content:center; flex-wrap:wrap }
-  button {
-    background:#00d084; color:#111; border:none; padding:10px 14px; border-radius:12px;
-    font-weight:700; cursor:pointer; transition:.15s transform, .15s opacity; font-size:16px;
-  }
-  button.secondary { background:#3f3f46; color:#fff }
-  button:active { transform:scale(.97) }
-  .hud { display:flex; justify-content:space-between; align-items:center; font-weight:700 }
-  .badge { background:#27272a; padding:6px 10px; border-radius:10px; border:1px solid #3a3a42 }
-  .controls { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-top:4px }
-  .controls .spacer { pointer-events:none }
-  .ctrl {
-    background:#222; border:2px solid #2f2f36; border-radius:14px; padding:14px 0; font-size:22px;
-    user-select:none;
-  }
-  .hidden { display:none !important }
-  .note { opacity:.7; font-size:12px; text-align:center }
+    :root {
+        --neon-blue: #00f3ff;
+        --neon-pink: #ff0055;
+        --neon-green: #00ff9d;
+        --bg-dark: #050510;
+        --panel-bg: rgba(10, 15, 30, 0.85);
+    }
+    * { box-sizing: border-box; user-select: none; -webkit-user-select: none; }
+    body {
+        margin: 0; overflow: hidden; background: var(--bg-dark);
+        color: #fff; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        height: 100vh; display: flex; align-items: center; justify-content: center;
+    }
+    
+    /* UI Overlay */
+    #ui-layer {
+        position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+        pointer-events: none; display: flex; flex-direction: column; justify-content: space-between;
+        padding: 15px; z-index: 10;
+    }
+    
+    /* Login Screen */
+    #login-screen {
+        position: absolute; z-index: 100; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0,0,0,0.95); display: flex; flex-direction: column;
+        align-items: center; justify-content: center; text-align: center;
+        backdrop-filter: blur(10px); transition: opacity 0.5s;
+    }
+    .panel {
+        background: #1a1a2e; border: 2px solid var(--neon-blue);
+        padding: 25px; border-radius: 15px; width: 90%; max-width: 400px;
+        box-shadow: 0 0 20px rgba(0, 243, 255, 0.2);
+    }
+    input[type="text"], input[type="password"] {
+        width: 100%; padding: 12px; margin: 10px 0;
+        background: #0f0f1a; border: 1px solid #333; color: #fff;
+        border-radius: 8px; text-align: center; direction: ltr;
+    }
+    button {
+        background: var(--neon-blue); color: #000; font-weight: bold;
+        border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer;
+        font-size: 16px; margin-top: 10px; width: 100%;
+        transition: 0.2s; text-transform: uppercase; letter-spacing: 1px;
+    }
+    button:active { transform: scale(0.96); }
+    button.secondary { background: transparent; border: 1px solid #555; color: #aaa; }
+    
+    /* Game Canvas */
+    canvas {
+        box-shadow: 0 0 50px rgba(0,0,0,0.5);
+        max-width: 100%; max-height: 100%;
+        border-left: 2px solid #222; border-right: 2px solid #222;
+    }
+
+    /* HUD Elements */
+    .hud-top { display: flex; justify-content: space-between; width: 100%; pointer-events: auto; }
+    .stat-box {
+        background: var(--panel-bg); border: 1px solid rgba(255,255,255,0.1);
+        padding: 8px 15px; border-radius: 8px; font-weight: bold;
+        text-shadow: 0 0 5px currentColor;
+    }
+    #health-bar-container {
+        width: 100px; height: 10px; background: #333; border-radius: 5px; margin-top: 5px; overflow: hidden;
+    }
+    #health-bar { width: 100%; height: 100%; background: var(--neon-green); transition: width 0.3s; }
+
+    /* AI Chat Interface */
+    #ai-comm {
+        position: absolute; top: 70px; left: 50%; transform: translateX(-50%);
+        width: 90%; max-width: 500px; pointer-events: none;
+        display: flex; flex-direction: column; align-items: center; gap: 8px;
+    }
+    .ai-msg {
+        background: rgba(0, 0, 0, 0.85); border-right: 4px solid var(--neon-blue);
+        padding: 10px 15px; border-radius: 4px 12px 12px 12px;
+        color: var(--neon-blue); font-size: 14px; line-height: 1.4;
+        animation: slideIn 0.4s ease-out; width: 100%;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        position: relative;
+    }
+    .ai-avatar {
+        position: absolute; right: -10px; top: -10px; width: 24px; height: 24px;
+        background: var(--neon-blue); border-radius: 50%; display: grid; place-items: center;
+        font-size: 12px; color: #000; font-weight: bold; box-shadow: 0 0 10px var(--neon-blue);
+    }
+    .ai-loading { font-size: 10px; opacity: 0.7; letter-spacing: 2px; text-align: center; display: none; }
+
+    /* Controls Overlay for Mobile */
+    #touch-controls {
+        position: absolute; bottom: 0; left: 0; width: 100%; height: 50%;
+        display: flex; pointer-events: auto; opacity: 0;
+    }
+    .t-btn { flex: 1; } /* Left and Right touch zones */
+
+    @keyframes slideIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+    .hidden { display: none !important; }
+    .glitch { color: var(--neon-pink); animation: shake 0.5s; }
+    @keyframes shake { 0% { transform: translate(1px, 1px); } 25% { transform: translate(-1px, -2px); } 75% { transform: translate(-3px, 0px); } }
+
 </style>
 </head>
 <body>
-  <div class="wrap">
-    <h1>🏁 سباق سيارات بالذكاء الاصطناعي</h1>
 
-    <!-- شاشة البداية -->
-    <div class="menu" id="menu">
-      <p>اختار مستوى الصعوبة وابدأ السباق!</p>
-      <div class="row">
-        <button onclick="startGame('easy')">سهل</button>
-        <button onclick="startGame('medium')">متوسط</button>
-        <button onclick="startGame('hard')">صعب</button>
-      </div>
-      <div class="row" style="margin-top:8px">
-        <button class="secondary" onclick="toggleHelp()">طريقة اللعب</button>
-      </div>
-      <div id="help" class="hidden" style="text-align:right; margin-top:10px; line-height:1.6">
-        • الحركة: الأسهم ⇦ ⇨ (كمبيوتر) — أزرار اللمس أو السحب يمين/يسار (موبايل).<br>
-        • تجنّب الاصطدام بالسيارات الذكية؛ هتحاول تزاحمك وتقفلك الطريق 😉.<br>
-        • اجمع مسافة أكبر = نقاط أكثر. بالتوفيق!
-      </div>
+    <!-- Game Canvas -->
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- UI Overlay -->
+    <div id="ui-layer">
+        <div class="hud-top">
+            <div class="stat-box" style="color:var(--neon-green)">
+                <div>المسافة: <span id="distVal">0</span>m</div>
+                <div>السرعة: <span id="speedVal">0</span> km/h</div>
+            </div>
+            <div class="stat-box" style="color:var(--neon-pink); text-align:left">
+                <div>الدرع</div>
+                <div id="health-bar-container"><div id="health-bar"></div></div>
+            </div>
+        </div>
+
+        <!-- AI Messages Area -->
+        <div id="ai-comm">
+            <div class="ai-loading">جاري تحليل البيانات...</div>
+            <div id="ai-messages"></div>
+        </div>
+
+        <div style="text-align:center; margin-bottom: 20px; opacity: 0.6; font-size: 12px;">
+            انقر يسار/يمين الشاشة أو استخدم الأسهم للتحكم
+        </div>
     </div>
 
-    <!-- واجهة اللعب -->
-    <div class="hud hidden" id="hud">
-      <div class="badge">النقاط: <span id="score">0</span></div>
-      <div class="badge">السرعة: <span id="spd">0</span></div>
-      <div class="badge">المستوى: <span id="lvl">—</span></div>
+    <!-- Login / API Key Screen -->
+    <div id="login-screen">
+        <div class="panel">
+            <h1 style="margin:0 0 15px; color:var(--neon-blue)">🏎️ Cyber AI Racer</h1>
+            <p style="font-size:13px; color:#ccc; line-height:1.6">
+                هذه اللعبة تستخدم نموذج <b>Gemini Pro</b> ليكون مساعدك الشخصي أثناء القيادة.
+                البيانات (السرعة، الحوادث) تُرسل للنموذج لتوليد تعليقات حية.
+            </p>
+            
+            <div id="key-input-area">
+                <input type="password" id="apiKeyInput" placeholder="الصق مفتاح API الخاص بـ Google AI هنا">
+                <button onclick="saveKeyAndStart()">اتصال وبدء اللعب</button>
+                <p style="font-size:10px; margin-top:10px; opacity:0.5">يتم حفظ المفتاح في متصفحك فقط ولا يرسل لأي سيرفر خارجي.</p>
+            </div>
+
+            <div id="start-btn-area" class="hidden">
+                <p style="color:var(--neon-green)">✅ المفتاح محفوظ</p>
+                <button onclick="startGame()">انطلق!</button>
+                <button class="secondary" onclick="resetKey()">تغيير المفتاح</button>
+            </div>
+        </div>
     </div>
 
-    <canvas id="c" width="480" height="720" class="hidden"></canvas>
-
-    <!-- أزرار لمس -->
-    <div class="controls hidden" id="touch">
-      <button class="ctrl" id="left">⬅️</button>
-      <div class="spacer"></div>
-      <button class="ctrl" id="right">➡️</button>
+    <!-- Touch Zones -->
+    <div id="touch-controls">
+        <div class="t-btn" id="btnLeft"></div>
+        <div class="t-btn" id="btnRight"></div>
     </div>
-
-    <div class="note">لوحة المفاتيح تعمل على الكمبيوتر • اللمس/السحب يعمل على الهاتف</div>
-  </div>
 
 <script>
-/* ====================== إعداد عام ====================== */
-const W = 480, H = 720;
-const canvas = document.getElementById('c');
+/**
+ * CYBER RACER AI
+ * لعبة سباق مربوطة بـ Google Gemini API
+ */
+
+// --- إعدادات النظام ---
+const CONFIG = {
+    canvasW: 480,
+    canvasH: 800,
+    laneCount: 4,
+    gravity: 0.5,
+    maxSpeed: 200,
+    aiInterval: 8000 // استدعاء الذكاء الاصطناعي كل 8 ثواني
+};
+
+// --- حالة اللعبة ---
+let state = {
+    running: false,
+    apiKey: '',
+    score: 0,
+    distance: 0,
+    speed: 0,
+    health: 100,
+    playerX: 0,
+    lanes: [],
+    cars: [],
+    particles: [],
+    lastAiCall: 0,
+    lastEvent: "بداية السباق",
+    isGameOver: false
+};
+
+// --- عناصر DOM ---
+const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
-const menu = document.getElementById('menu');
-const hud = document.getElementById('hud');
-const touch = document.getElementById('touch');
-const scoreEl = document.getElementById('score');
-const spdEl = document.getElementById('spd');
-const lvlEl = document.getElementById('lvl');
+const uiDist = document.getElementById('distVal');
+const uiSpeed = document.getElementById('speedVal');
+const uiHealth = document.getElementById('health-bar');
+const aiMsgContainer = document.getElementById('ai-messages');
+const aiLoading = document.querySelector('.ai-loading');
 
-let running = false;
-let lastTime = 0;
-let score = 0;
-let distance = 0;
-let baseSpeed = 5;        // سرعة الطريق الأساسية
-let player, cars, laneX, spawnTimer = 0, spawnEvery = 1100, aiAggression = 0.5;
+// --- تهيئة الكانفاس ---
+function resize() {
+    let scale = Math.min(window.innerWidth / CONFIG.canvasW, window.innerHeight / CONFIG.canvasH);
+    canvas.width = CONFIG.canvasW;
+    canvas.height = CONFIG.canvasH;
+    canvas.style.transform = `scale(${Math.min(1, scale)})`;
+    
+    // حساب مراكز الحارات
+    state.lanes = [];
+    let laneW = CONFIG.canvasW / CONFIG.laneCount;
+    for(let i=0; i<CONFIG.laneCount; i++) state.lanes.push(laneW * i + laneW/2);
+}
+window.addEventListener('resize', resize);
+resize();
 
-/* ====================== صوت بدون ملفات ====================== */
-let AC, engineOsc, engineGain;
-function audioInit(){
-  if (AC) return;
-  AC = new (window.AudioContext || window.webkitAudioContext)();
-}
-function startEngine(){
-  audioInit();
-  stopEngine();
-  engineOsc = AC.createOscillator();
-  engineGain = AC.createGain();
-  engineOsc.type = 'sawtooth';
-  engineGain.gain.value = 0.08;      // مستوى صوت خفيف
-  engineOsc.connect(engineGain); engineGain.connect(AC.destination);
-  engineOsc.frequency.value = 120;    // تتغير مع السرعة
-  engineOsc.start();
-}
-function stopEngine(){
-  if (engineOsc){ try{engineOsc.stop();}catch(e){} engineOsc.disconnect(); engineOsc = null; }
-  if (engineGain){ engineGain.disconnect(); engineGain = null; }
-}
-function beep(freq = 800, dur = 0.12){
-  audioInit();
-  const osc = AC.createOscillator();
-  const g = AC.createGain();
-  osc.type = 'square';
-  osc.frequency.value = freq;
-  g.gain.setValueAtTime(0.12, AC.currentTime);
-  g.gain.exponentialRampToValueAtTime(0.0001, AC.currentTime + dur);
-  osc.connect(g); g.connect(AC.destination);
-  osc.start(); osc.stop(AC.currentTime + dur);
-}
-function crash(){
-  audioInit();
-  // burst ضوضاء بيضاء
-  const buffer = AC.createBuffer(1, AC.sampleRate * 0.25, AC.sampleRate);
-  const data = buffer.getChannelData(0);
-  for (let i=0; i<data.length; i++) data[i] = (Math.random()*2-1) * (1 - i/data.length);
-  const src = AC.createBufferSource(); src.buffer = buffer;
-  const g = AC.createGain(); g.gain.value = 0.25;
-  src.connect(g); g.connect(AC.destination);
-  src.start();
-}
-
-/* ====================== عالم اللعبة ====================== */
-function resetGame(){
-  laneX = [W*0.2, W*0.4, W*0.6, W*0.8];    // 4 حارات
-  player = { x: laneX[1], y: H - 120, w: 48, h: 86, lane: 1, vx: 0 };
-  cars = []; score = 0; distance = 0; spawnTimer = 0;
-  lastTime = 0;
-  startEngine();
-}
-function spawnCar(){
-  const lane = Math.floor(Math.random()*laneX.length);
-  // خصم ذكي
-  const car = {
-    x: laneX[lane], y: -100, w: 48, h: 86,
-    speed: baseSpeed + 1 + Math.random()*2,
-    lane, color: randomColor(), aiTimer: 0
-  };
-  cars.push(car);
-}
-function randomColor(){
-  const cols = ['#ff3b30','#ff9f0a','#34c759','#0a84ff','#bf5af2','#ffd60a'];
-  return cols[Math.floor(Math.random()*cols.length)];
-}
-
-/* ====================== رسم ====================== */
-let roadOffset = 0;
-function drawRoad(dt){
-  // خلفية طريق
-  ctx.fillStyle = '#15171b'; ctx.fillRect(0,0,W,H);
-  // جوانب الطريق
-  ctx.fillStyle = '#0f0f12'; ctx.fillRect(40,0,W-80,H);
-  // خطوط جانبية
-  ctx.fillStyle = '#d1d1d1'; ctx.fillRect(40,0,6,H);
-  ctx.fillRect(W-46,0,6,H);
-  // خطوط متقطعة وسط الحارات
-  roadOffset += baseSpeed * dt * 0.12;
-  ctx.fillStyle = '#ececec';
-  const dashH = 40, gap = 40;
-  for (let i=1;i<4;i++){
-    const x = laneX[i-1] + (laneX[i]-laneX[i-1])/2 - 4;
-    for (let y = -dashH; y < H+dashH; y += dashH+gap){
-      ctx.fillRect(x, (y + (roadOffset % (dashH+gap))), 8, dashH);
+// --- إدارة المفتاح (Auth) ---
+function initAuth() {
+    const savedKey = localStorage.getItem('gemini_api_key');
+    if (savedKey) {
+        state.apiKey = savedKey;
+        document.getElementById('key-input-area').classList.add('hidden');
+        document.getElementById('start-btn-area').classList.remove('hidden');
     }
-  }
-}
-function drawCar(o, isPlayer=false){
-  ctx.save();
-  ctx.translate(o.x, o.y);
-  // جسم
-  ctx.fillStyle = isPlayer ? '#00d084' : o.color;
-  roundRect(-o.w/2, -o.h/2, o.w, o.h, 10);
-  ctx.fill();
-  // زجاج
-  ctx.fillStyle = '#1f2937';
-  roundRect(-o.w*0.35, -o.h*0.28, o.w*0.7, o.h*0.35, 6); ctx.fill();
-  // عجلات
-  ctx.fillStyle = '#0b0b0d';
-  ctx.fillRect(-o.w/2-6, -o.h/2+12, 6, 20);
-  ctx.fillRect(o.w/2, -o.h/2+12, 6, 20);
-  ctx.fillRect(-o.w/2-6, o.h/2-32, 6, 20);
-  ctx.fillRect(o.w/2, o.h/2-32, 6, 20);
-  // لمعة بسيطة
-  if (isPlayer){ ctx.fillStyle='rgba(255,255,255,.15)'; roundRect(-o.w*0.45,-o.h*0.45,o.w*0.9,o.h*0.25,8); ctx.fill(); }
-  ctx.restore();
-}
-function roundRect(x,y,w,h,r){
-  ctx.beginPath();
-  ctx.moveTo(x+r,y);
-  ctx.arcTo(x+w,y,x+w,y+h,r);
-  ctx.arcTo(x+w,y+h,x,y+h,r);
-  ctx.arcTo(x,y+h,x,y,r);
-  ctx.arcTo(x,y,x+w,y,r);
-  ctx.closePath();
 }
 
-/* ====================== منطق الذكاء الاصطناعي ====================== */
-function aiUpdate(car, dt){
-  car.aiTimer -= dt;
-  if (car.aiTimer <= 0){
-    car.aiTimer = 0.25 + Math.random()*0.35;
-    // احتمال مطاردة حسب العدوانية
-    if (Math.random() < aiAggression){
-      // انحراف بسيط باتجاه اللاعب
-      const dx = player.x - car.x;
-      car.x += Math.sign(dx) * 22;  // قفزة صغيرة بين الحارات
-      // احترم حدود الطريق
-      car.x = Math.max(60, Math.min(W-60, car.x));
-    } else {
-      // انحراف عشوائي بسيط
-      car.x += (Math.random()<.5?-1:1) * 18;
-      car.x = Math.max(60, Math.min(W-60, car.x));
+function saveKeyAndStart() {
+    const input = document.getElementById('apiKeyInput').value.trim();
+    if (input.length < 10) { alert('الرجاء إدخال مفتاح صحيح'); return; }
+    localStorage.setItem('gemini_api_key', input);
+    state.apiKey = input;
+    startGame();
+}
+
+function resetKey() {
+    localStorage.removeItem('gemini_api_key');
+    location.reload();
+}
+
+// --- محرك الذكاء الاصطناعي (Gemini API) ---
+async function callGeminiAI() {
+    if (!state.running || state.isGameOver) return;
+    
+    aiLoading.style.display = 'block';
+
+    // صياغة السياق (Context)
+    const context = `
+    أنت مساعد ذكي "Co-pilot" في لعبة سباق سيارات سريعة.
+    الحالة الحالية:
+    - السرعة: ${Math.floor(state.speed)} كم/س
+    - صحة المركبة: ${Math.floor(state.health)}%
+    - المسافة المقطوعة: ${Math.floor(state.distance)} متر
+    - آخر حدث: ${state.lastEvent}
+    
+    المطلوب: جملة واحدة قصيرة جداً (أقل من 15 كلمة) باللهجة العربية أو المصرية.
+    الأسلوب: ${state.health < 30 ? 'قلق جداً وتحذيري' : 'حماسي، ساخر، أو مشجع'}.
+    لا تستخدم مقدمات، ادخل في صلب الموضوع فوراً.
+    `;
+
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${state.apiKey}`;
+    
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contents: [{ parts: [{ text: context }] }]
+            })
+        });
+
+        const data = await response.json();
+        aiLoading.style.display = 'none';
+
+        if (data.error) {
+            console.error(data.error);
+            showAiMessage("فقدت الاتصال بالخادم... ركز في الطريق!", true);
+            return;
+        }
+
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (text) showAiMessage(text);
+
+    } catch (e) {
+        console.error(e);
+        aiLoading.style.display = 'none';
     }
-  }
 }
 
-/* ====================== حلقة اللعبة ====================== */
-function loop(ts){
-  if (!running) return;
-  if (!lastTime) lastTime = ts;
-  const dt = Math.min( (ts - lastTime)/1000, 0.033 ); // clamp
-  lastTime = ts;
-
-  // سرعة المحرك حسب السرعة
-  if (engineOsc) engineOsc.frequency.value = 90 + baseSpeed*12;
-
-  // تحديث
-  spawnTimer += dt*1000;
-  if (spawnTimer >= spawnEvery){
-    spawnTimer = 0; spawnCar();
-  }
-  // تحريك الخصوم
-  for (const car of cars){
-    aiUpdate(car, dt);
-    car.y += (car.speed + baseSpeed) * (60*dt*0.6);
-  }
-  // تنظيف خارج الشاشة
-  while (cars.length && cars[0].y > H+140) cars.shift();
-
-  // تحريك اللاعب (انزلاق بسيط)
-  player.x += player.vx * dt * 480;
-  player.vx *= 0.90;
-  player.x = Math.max(70, Math.min(W-70, player.x));
-
-  // نقاط
-  distance += baseSpeed * dt;
-  score = Math.floor(distance * 10);
-  scoreEl.textContent = score;
-  spdEl.textContent = Math.round(baseSpeed*20);
-  // زيادة تدريجية للسرعة
-  baseSpeed += dt * 0.15;
-
-  // تصادم؟
-  for (const car of cars){
-    if (rectsOverlap(player, car)){
-      gameOver();
-      return;
+function showAiMessage(text, isError=false) {
+    const msgDiv = document.createElement('div');
+    msgDiv.className = 'ai-msg';
+    if(isError) msgDiv.style.borderColor = 'red';
+    
+    msgDiv.innerHTML = `
+        <div class="ai-avatar">AI</div>
+        ${text}
+    `;
+    
+    // إزالة الرسائل القديمة
+    while(aiMsgContainer.children.length > 1) {
+        aiMsgContainer.removeChild(aiMsgContainer.firstChild);
     }
-  }
-
-  // رسم
-  ctx.clearRect(0,0,W,H);
-  drawRoad(dt);
-  drawCar(player, true);
-  for (const car of cars) drawCar(car, false);
-
-  requestAnimationFrame(loop);
-}
-function rectsOverlap(a,b){
-  const ax=a.x-a.w/2, ay=a.y-a.h/2, aw=a.w, ah=a.h;
-  const bx=b.x-b.w/2, by=b.y-b.h/2, bw=b.w, bh=b.h;
-  return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
+    
+    aiMsgContainer.appendChild(msgDiv);
+    
+    // اختفاء تلقائي
+    setTimeout(() => {
+        if(msgDiv.parentNode) {
+            msgDiv.style.opacity = '0';
+            setTimeout(() => msgDiv.remove(), 500);
+        }
+    }, 6000);
 }
 
-/* ====================== تحكم ====================== */
-function moveLeft(){ player.vx = Math.max(player.vx - 1.5, -6); beep(600, .07) }
-function moveRight(){ player.vx = Math.min(player.vx + 1.5, 6);  beep(600, .07) }
+// --- منطق اللعبة ---
 
-document.addEventListener('keydown', (e)=>{
-  if (!running) return;
-  if (e.key === 'ArrowLeft') moveLeft();
-  if (e.key === 'ArrowRight') moveRight();
-  if (e.key === 'p' || e.key === 'P') togglePause();
+function startGame() {
+    document.getElementById('login-screen').classList.add('hidden');
+    
+    // إعادة تعيين القيم
+    state.running = true;
+    state.isGameOver = false;
+    state.score = 0;
+    state.distance = 0;
+    state.speed = 0;
+    state.health = 100;
+    state.playerX = state.lanes[1];
+    state.cars = [];
+    state.particles = [];
+    state.lastAiCall = Date.now();
+    state.lastEvent = "انطلاق السباق";
+    
+    showAiMessage("أنظمتي تعمل. المحرك جاهز. وريني شطارتك يا بطل!");
+    
+    requestAnimationFrame(loop);
+}
+
+function gameOver() {
+    state.running = false;
+    state.isGameOver = true;
+    state.lastEvent = "تحطم السيارة وانتهاء السباق";
+    callGeminiAI(); // تعليق أخير
+    
+    setTimeout(() => {
+        alert(`Game Over! المسافة: ${Math.floor(state.distance)}m`);
+        document.getElementById('login-screen').classList.remove('hidden');
+        document.getElementById('key-input-area').classList.add('hidden');
+        document.getElementById('start-btn-area').classList.remove('hidden');
+    }, 2000);
+}
+
+// التحكم
+let targetX = state.lanes ? state.lanes[1] : 240;
+function move(dir) {
+    let currentLaneIdx = state.lanes.findIndex(x => Math.abs(x - targetX) < 10);
+    if (currentLaneIdx === -1) currentLaneIdx = 1; // Fallback
+    
+    let newIdx = currentLaneIdx + dir;
+    if (newIdx >= 0 && newIdx < state.lanes.length) {
+        targetX = state.lanes[newIdx];
+    }
+}
+
+document.addEventListener('keydown', (e) => {
+    if (!state.running) return;
+    if (e.key === 'ArrowLeft') move(-1);
+    if (e.key === 'ArrowRight') move(1);
 });
 
-// لمس/سحب
-const leftBtn = document.getElementById('left');
-const rightBtn = document.getElementById('right');
-leftBtn?.addEventListener('touchstart', (e)=>{ e.preventDefault(); moveLeft(); }, {passive:false});
-rightBtn?.addEventListener('touchstart', (e)=>{ e.preventDefault(); moveRight(); }, {passive:false});
+// اللمس
+document.getElementById('btnLeft').addEventListener('touchstart', (e) => { e.preventDefault(); move(-1); });
+document.getElementById('btnRight').addEventListener('touchstart', (e) => { e.preventDefault(); move(1); });
 
-// سوايب على الكانفس
-let touchStartX=null, touchStartY=null;
-canvas.addEventListener('touchstart', (e)=>{
-  const t = e.touches[0]; touchStartX = t.clientX; touchStartY = t.clientY;
-}, {passive:true});
-canvas.addEventListener('touchend', (e)=>{
-  if (touchStartX==null) return;
-  const t = e.changedTouches[0];
-  const dx = t.clientX - touchStartX, dy = t.clientY - touchStartY;
-  if (Math.abs(dx) > Math.abs(dy)){
-    if (dx < -20) moveLeft(); else if (dx > 20) moveRight();
-  }
-  touchStartX = touchStartY = null;
-}, {passive:true});
+// فئة السيارة المعادية
+class Car {
+    constructor() {
+        this.lane = Math.floor(Math.random() * CONFIG.laneCount);
+        this.x = state.lanes[this.lane];
+        this.y = -100;
+        this.w = 50;
+        this.h = 90;
+        this.speed = 2 + Math.random() * 3;
+        this.color = ['#ff0055', '#ff9900', '#ffff00'][Math.floor(Math.random()*3)];
+    }
+    update(speedFactor) {
+        this.y += (state.speed * speedFactor) - this.speed;
+    }
+    draw() {
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = this.color;
+        ctx.fillStyle = this.color;
+        ctx.fillRect(this.x - this.w/2, this.y, this.w, this.h);
+        
+        // تفاصيل السيارة
+        ctx.fillStyle = '#000';
+        ctx.fillRect(this.x - this.w/2 + 5, this.y + 10, this.w - 10, 15); // زجاج خلفي
+        ctx.fillRect(this.x - this.w/2 + 5, this.y + 60, this.w - 10, 10); // زجاج أمامي
+        ctx.shadowBlur = 0;
+    }
+}
 
-/* ====================== حالات اللعبة ====================== */
-function startGame(mode){
-  // صعوبات
-  if (mode==='easy'){ baseSpeed = 4; spawnEvery = 1400; aiAggression = 0.25; lvlEl.textContent='سهل'; }
-  if (mode==='medium'){ baseSpeed = 6; spawnEvery = 1000; aiAggression = 0.55; lvlEl.textContent='متوسط'; }
-  if (mode==='hard'){ baseSpeed = 8; spawnEvery = 750; aiAggression = 0.85; lvlEl.textContent='صعب'; }
+// الجسيمات (انفجارات)
+class Particle {
+    constructor(x, y, color) {
+        this.x = x; this.y = y;
+        this.vx = (Math.random() - 0.5) * 10;
+        this.vy = (Math.random() - 0.5) * 10;
+        this.life = 1.0;
+        this.color = color;
+    }
+    update() {
+        this.x += this.vx; this.y += this.vy;
+        this.life -= 0.05;
+    }
+    draw() {
+        ctx.globalAlpha = this.life;
+        ctx.fillStyle = this.color;
+        ctx.beginPath(); ctx.arc(this.x, this.y, 3, 0, Math.PI*2); ctx.fill();
+        ctx.globalAlpha = 1;
+    }
+}
 
-  menu.classList.add('hidden');
-  hud.classList.remove('hidden');
-  canvas.classList.remove('hidden');
-  touch.classList.remove('hidden');
+// حلقة اللعبة الرئيسية
+function loop() {
+    if (!state.running) return;
+    
+    // تحديث الفيزياء
+    // حركة ناعمة للاعب
+    state.playerX += (targetX - state.playerX) * 0.15;
+    
+    // تسارع
+    if (state.speed < CONFIG.maxSpeed) state.speed += 0.1;
+    state.distance += state.speed * 0.01;
+    
+    // توليد الأعداء
+    if (Math.random() < 0.02 && state.speed > 20) {
+        // تأكد من عدم وجود سيارة قريبة جداً في نفس الحارة
+        let lane = Math.floor(Math.random() * CONFIG.laneCount);
+        let safe = true;
+        for(let c of state.cars) {
+            if (c.lane === lane && c.y < 200) safe = false;
+        }
+        if (safe) state.cars.push(new Car());
+    }
+    
+    // تحديث الأعداء
+    for (let i = state.cars.length - 1; i >= 0; i--) {
+        let c = state.cars[i];
+        c.update(0.05); // حركة نسبية
+        
+        // تصادم
+        if (
+            Math.abs(state.playerX - c.x) < 40 &&
+            c.y > CONFIG.canvasH - 180 && c.y < CONFIG.canvasH - 80
+        ) {
+            // حدث تصادم
+            state.health -= 20;
+            state.speed *= 0.6; // تباطؤ مفاجئ
+            state.lastEvent = "اصطدام عنيف بسيارة منافسة";
+            
+            // تأثيرات
+            for(let k=0; k<10; k++) state.particles.push(new Particle(c.x, c.y + 40, c.color));
+            
+            state.cars.splice(i, 1);
+            
+            // اهتزاز الشاشة
+            document.body.classList.add('glitch');
+            setTimeout(()=>document.body.classList.remove('glitch'), 500);
+            
+            // استدعاء فوري للذكاء الاصطناعي عند الاصطدام
+            if (Date.now() - state.lastAiCall > 3000) {
+                state.lastAiCall = Date.now();
+                callGeminiAI();
+            }
+            
+            if (state.health <= 0) gameOver();
+            continue;
+        }
+        
+        // إزالة السيارات القديمة
+        if (c.y > CONFIG.canvasH) state.cars.splice(i, 1);
+    }
+    
+    // تحديث الجسيمات
+    for (let i = state.particles.length - 1; i >= 0; i--) {
+        state.particles[i].update();
+        if (state.particles[i].life <= 0) state.particles.splice(i, 1);
+    }
+    
+    // استدعاء دوري للذكاء الاصطناعي
+    if (Date.now() - state.lastAiCall > CONFIG.aiInterval) {
+        state.lastEvent = state.speed > 150 ? "قيادة بسرعة جنونية" : "قيادة مستقرة";
+        state.lastAiCall = Date.now();
+        callGeminiAI();
+    }
+    
+    // رسم الخلفية والطريق
+    ctx.fillStyle = '#050510';
+    ctx.fillRect(0, 0, CONFIG.canvasW, CONFIG.canvasH);
+    
+    // خطوط الطريق المتحركة
+    ctx.strokeStyle = 'rgba(0, 243, 255, 0.1)';
+    ctx.lineWidth = 2;
+    let offset = (Date.now() * state.speed * 0.005) % 100;
+    
+    // رسم الحارات
+    for (let x of state.lanes) {
+        ctx.beginPath();
+        ctx.moveTo(x - 60, 0); ctx.lineTo(x - 60, CONFIG.canvasH); // خط يسار الحارة
+        ctx.stroke();
+        
+        // خطوط الوسط المتقطعة
+        ctx.fillStyle = 'rgba(255,255,255,0.2)';
+        if (x !== state.lanes[state.lanes.length-1]) {
+             for (let y = -100; y < CONFIG.canvasH; y += 100) {
+                ctx.fillRect(x + 58, y + offset, 4, 40);
+            }
+        }
+    }
 
-  resetGame();
-  running = true;
-  requestAnimationFrame(loop);
+    // رسم اللاعب
+    ctx.save();
+    ctx.translate(state.playerX, CONFIG.canvasH - 120);
+    // ظل
+    ctx.shadowBlur = 20; ctx.shadowColor = '#00f3ff';
+    // جسم السيارة
+    ctx.fillStyle = '#111';
+    ctx.beginPath(); ctx.roundRect(-25, 0, 50, 90, 10); ctx.fill();
+    // تفاصيل نيون
+    ctx.strokeStyle = '#00f3ff'; ctx.lineWidth = 3;
+    ctx.stroke();
+    // محرك خلفي
+    ctx.fillStyle = '#00f3ff';
+    ctx.fillRect(-15, 85, 10, 5); ctx.fillRect(5, 85, 10, 5);
+    ctx.restore();
+    
+    // رسم الأعداء
+    state.cars.forEach(c => c.draw());
+    
+    // رسم الجسيمات
+    state.particles.forEach(p => p.draw());
+    
+    // تحديث الواجهة
+    uiDist.textContent = Math.floor(state.distance);
+    uiSpeed.textContent = Math.floor(state.speed);
+    uiHealth.style.width = Math.max(0, state.health) + '%';
+    uiHealth.style.background = state.health < 30 ? 'red' : '#00ff9d';
+    
+    requestAnimationFrame(loop);
 }
-function gameOver(){
-  running = false;
-  crash();
-  stopEngine();
-  setTimeout(()=>{
-    alert('انتهى السباق! نقاطك: ' + score);
-    // رجوع للقائمة
-    canvas.classList.add('hidden');
-    hud.classList.add('hidden');
-    touch.classList.add('hidden');
-    menu.classList.remove('hidden');
-    lvlEl.textContent = '—';
-  }, 150);
-}
-function togglePause(){
-  if (!running){ // استئناف
-    running = true; lastTime = 0; startEngine(); requestAnimationFrame(loop);
-  } else { // إيقاف مؤقت
-    running = false; stopEngine();
-  }
-}
-function toggleHelp(){
-  const h = document.getElementById('help');
-  h.classList.toggle('hidden');
-}
+
+// البداية
+initAuth();
+
 </script>
 </body>
 </html>
