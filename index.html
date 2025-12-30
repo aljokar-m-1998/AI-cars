@@ -1,547 +1,775 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="ar">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-<title>🌌 Neon Odyssey: AI Generated Worlds</title>
-<style>
-    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap');
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Neon Survivor: Cyber Arena</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
     
-    :root {
-        --primary: #00f3ff;
-        --accent: #ff0055;
-        --bg: #050510;
-        --glass: rgba(20, 25, 40, 0.9);
-    }
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+
+        let db, auth, userId;
+        
+        const initFirebase = async () => {
+            try {
+                if (Object.keys(firebaseConfig).length === 0) return;
+                const app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+                
+                onAuthStateChanged(auth, async (user) => {
+                    if (user) {
+                        userId = user.uid;
+                        window.firebaseReady = true;
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                });
+            } catch (e) { console.error("FB Error", e); }
+        };
+
+        window.firebaseObj = {
+            init: initFirebase,
+            db: () => db,
+            getUserId: () => userId
+        };
+    </script>
     
-    body {
-        margin: 0; overflow: hidden; background: var(--bg);
-        color: #fff; font-family: 'Cairo', sans-serif;
-        height: 100vh; display: flex; align-items: center; justify-content: center;
-    }
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap');
+        
+        body {
+            font-family: 'Cairo', sans-serif;
+            background-color: #050505;
+            overflow: hidden;
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+        }
 
-    /* --- UI Layer --- */
-    #ui-layer {
-        position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-        pointer-events: none; z-index: 10; display: flex; flex-direction: column;
-    }
+        #gameCanvas {
+            background: #0a0a0f;
+            image-rendering: pixelated;
+        }
 
-    /* Screens (Login, Story, Game Over) */
-    .screen {
-        position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-        background: rgba(0,0,0,0.92); backdrop-filter: blur(10px);
-        display: flex; flex-direction: column; align-items: center; justify-content: center;
-        z-index: 20; pointer-events: auto; transition: opacity 0.5s;
-    }
-    .hidden { opacity: 0; pointer-events: none; }
-    
-    .panel {
-        background: var(--glass); border: 1px solid var(--primary);
-        padding: 30px; border-radius: 20px; width: 90%; max-width: 500px;
-        text-align: center; box-shadow: 0 0 30px rgba(0, 243, 255, 0.15);
-        position: relative; overflow: hidden;
-    }
-    .panel::before {
-        content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 4px;
-        background: linear-gradient(90deg, var(--primary), var(--accent));
-    }
+        /* Animations */
+        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+        @keyframes glow { 0%, 100% { box-shadow: 0 0 10px #3b82f6; } 50% { box-shadow: 0 0 30px #3b82f6; } }
+        @keyframes pop { 0% { transform: scale(0.8); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
 
-    h1, h2 { margin: 0 0 15px; text-transform: uppercase; letter-spacing: 2px; }
-    h1 { color: var(--primary); font-size: 2rem; }
-    p { color: #ccc; line-height: 1.6; margin-bottom: 20px; font-size: 1.1rem; }
+        .game-ui {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; display: flex; justify-content: center; align-items: center;
+        }
+        
+        .pointer-auto { pointer-events: auto; }
 
-    input {
-        width: 100%; padding: 15px; background: #0a0a15; border: 1px solid #333;
-        color: #fff; border-radius: 8px; font-family: inherit; margin-bottom: 15px;
-        text-align: center; direction: ltr; font-size: 1rem;
-    }
-    
-    button {
-        background: var(--primary); color: #000; border: none; padding: 15px 40px;
-        font-size: 1.2rem; font-weight: 900; border-radius: 8px; cursor: pointer;
-        transition: 0.3s; width: 100%; clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
-    }
-    button:hover { transform: translateY(-3px); box-shadow: 0 10px 20px rgba(0, 243, 255, 0.3); }
-    button.secondary { background: transparent; border: 2px solid #333; color: #888; margin-top: 10px; }
+        .card {
+            background: rgba(17, 24, 39, 0.95);
+            border: 1px solid #374151;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            border-color: #3b82f6;
+            box-shadow: 0 10px 30px -10px rgba(59, 130, 246, 0.5);
+        }
 
-    /* Loading / AI Generation */
-    .loader {
-        border: 4px solid #111; border-top: 4px solid var(--primary);
-        border-radius: 50%; width: 40px; height: 40px;
-        animation: spin 1s linear infinite; margin: 20px auto;
-    }
-    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .xp-bar-container {
+            width: 100%; height: 6px; background: #1f2937; position: absolute; top: 0; left: 0;
+        }
+        .xp-bar-fill {
+            height: 100%; background: linear-gradient(90deg, #3b82f6, #8b5cf6); width: 0%; transition: width 0.2s;
+            box-shadow: 0 0 10px #3b82f6;
+        }
 
-    /* In-Game HUD */
-    .hud {
-        padding: 20px; display: flex; justify-content: space-between; align-items: flex-start;
-        text-shadow: 0 2px 4px #000;
-    }
-    .stat { background: rgba(0,0,0,0.5); padding: 5px 15px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.1); }
-    .stat span { color: var(--primary); font-weight: bold; font-size: 1.2rem; }
-    
-    #level-title {
-        position: absolute; top: 15%; width: 100%; text-align: center;
-        font-size: 3rem; font-weight: 900; color: #fff; opacity: 0;
-        text-shadow: 0 0 20px var(--primary); pointer-events: none;
-        transition: 0.5s; transform: scale(0.8);
-    }
-    .show-title { opacity: 1 !important; transform: scale(1) !important; }
+        .damage-text {
+            position: absolute; font-weight: bold; text-shadow: 0 0 2px black;
+            animation: pop 0.2s ease-out forwards; pointer-events: none;
+        }
 
-    /* Canvas */
-    canvas {
-        width: 100%; height: 100%; object-fit: cover;
-    }
-
-    /* Touch Controls */
-    .touch-zone {
-        position: absolute; bottom: 0; height: 100%; width: 50%; z-index: 5;
-    }
-    #t-left { left: 0; } #t-right { right: 0; }
-
-</style>
+        .joystick-area {
+            position: absolute; bottom: 50px; left: 50%; transform: translateX(-50%);
+            width: 200px; height: 200px;
+            /* border: 1px solid rgba(255,255,255,0.1); border-radius: 50%; */
+            pointer-events: auto;
+        }
+    </style>
 </head>
 <body>
 
-    <!-- Game World -->
-    <canvas id="c"></canvas>
-    
-    <div id="ui-layer">
-        <!-- HUD -->
-        <div class="hud" id="hud" style="opacity:0">
+    <!-- HUD -->
+    <div id="hud" class="hidden absolute top-0 left-0 w-full h-full pointer-events-none z-10">
+        <div class="xp-bar-container"><div id="xpBar" class="xp-bar-fill"></div></div>
+        
+        <div class="absolute top-4 left-4 flex flex-col items-start">
+            <div class="text-white font-black text-2xl drop-shadow-md">LVL <span id="lvlDisplay" class="text-yellow-400">1</span></div>
+            <div class="text-gray-400 text-sm">⏱️ <span id="timeDisplay">00:00</span></div>
+        </div>
+        
+        <div class="absolute top-4 right-4 text-right">
+            <div class="text-green-400 font-bold text-xl">HP <span id="hpDisplay">100</span></div>
+            <div class="text-yellow-400 text-sm">💰 <span id="goldDisplay">0</span></div>
+        </div>
+        
+        <div class="absolute bottom-10 left-0 w-full text-center text-gray-500 text-xs">
+            اسحب للتحرك - الإطلاق تلقائي
+        </div>
+    </div>
+
+    <!-- Upgrade Screen (Pause) -->
+    <div id="upgradeScreen" class="game-ui hidden z-50 bg-black/80 backdrop-blur-sm pointer-auto">
+        <div class="flex flex-col items-center gap-6 w-full max-w-md p-4">
+            <h2 class="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500 animate-[float_2s_infinite]">LEVEL UP!</h2>
+            <p class="text-gray-300">اختر ترقية واحدة</p>
+            <div id="upgradeCards" class="flex flex-col gap-3 w-full">
+                <!-- Cards injected via JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Menu -->
+    <div id="mainMenu" class="game-ui z-40 bg-gray-900 pointer-auto flex-col">
+        <h1 class="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-br from-cyan-400 to-blue-600 mb-2">NEON SURVIVOR</h1>
+        <p class="text-gray-400 mb-8 tracking-widest">CYBER ARENA</p>
+        
+        <div class="bg-gray-800 p-4 rounded-xl mb-8 flex items-center gap-4 border border-gray-700">
+            <div class="text-3xl">💰</div>
+            <div class="text-left">
+                <div class="text-gray-400 text-xs">إجمالي الذهب</div>
+                <div class="text-yellow-400 font-bold text-xl" id="menuGold">0</div>
+            </div>
+        </div>
+
+        <div class="flex flex-col gap-3 w-64">
+            <button id="btnStart" class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl shadow-[0_0_20px_rgba(37,99,235,0.5)] transition-all active:scale-95">
+                ⚔️ ابدأ المعركة
+            </button>
+            <button id="btnShop" class="bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 rounded-xl transition-all active:scale-95">
+                🛠️ التطويرات
+            </button>
+        </div>
+    </div>
+
+    <!-- Permanent Shop -->
+    <div id="shopScreen" class="game-ui hidden z-40 bg-gray-900 pointer-auto flex-col justify-start pt-10">
+        <div class="flex justify-between items-center w-full max-w-md px-4 mb-6">
+            <h2 class="text-3xl font-bold text-white">المختبر</h2>
+            <div class="text-yellow-400 font-bold" id="shopGold">0 💰</div>
+        </div>
+        
+        <div id="shopItems" class="grid grid-cols-1 gap-3 w-full max-w-md px-4 overflow-y-auto pb-20">
+            <!-- Shop Items injected -->
+        </div>
+
+        <div class="absolute bottom-6 w-full max-w-md px-4">
+            <button id="btnBack" class="w-full bg-red-600 text-white font-bold py-3 rounded-xl">رجوع</button>
+        </div>
+    </div>
+
+    <!-- Game Over -->
+    <div id="gameOverScreen" class="game-ui hidden z-50 bg-black/90 pointer-auto flex-col">
+        <h2 class="text-5xl font-black text-red-500 mb-2">القضاء عليك</h2>
+        <p class="text-gray-300 text-xl mb-6">صمدت لمدة: <span id="finalTime" class="text-white font-bold">00:00</span></p>
+        
+        <div class="grid grid-cols-2 gap-4 text-center mb-8 bg-gray-800 p-4 rounded-xl border border-gray-700">
             <div>
-                <div class="stat">المرحلة: <span id="lvl-display">1</span></div>
-                <div class="stat" style="margin-top:5px">التقدم: <span id="dist-display">0%</span></div>
+                <div class="text-gray-500 text-xs">الأعداء</div>
+                <div class="text-white text-xl font-bold" id="finalKills">0</div>
             </div>
-            <div class="stat">الدرع: <span id="hp-display" style="color:var(--accent)">100%</span></div>
-        </div>
-
-        <!-- Dramatic Level Title -->
-        <h1 id="level-title">SYSTEM READY</h1>
-
-        <!-- Touch Controls -->
-        <div class="touch-zone" id="t-left"></div>
-        <div class="touch-zone" id="t-right"></div>
-    </div>
-
-    <!-- 1. API Key Screen -->
-    <div id="screen-login" class="screen">
-        <div class="panel">
-            <h1>Neon Odyssey</h1>
-            <p>لعبة سباق متولدة ذاتياً (Procedural AI).<br>كل مرحلة يصممها الذكاء الاصطناعي خصيصاً لك.</p>
-            <input type="password" id="api-key" placeholder="ألصق مفتاح Gemini API هنا">
-            <button onclick="Auth.save()">اتصال بالنظام</button>
-            <p style="font-size:0.8rem; margin-top:15px; opacity:0.5">يتم حفظ المفتاح محلياً في جهازك فقط.</p>
-        </div>
-    </div>
-
-    <!-- 2. Story / Loading Screen -->
-    <div id="screen-story" class="screen hidden">
-        <div class="panel">
-            <h2 id="story-title" style="color:var(--primary)">جاري تحليل البيانات...</h2>
-            <p id="story-text">يقوم الذكاء الاصطناعي ببناء العالم الآن...</p>
-            
-            <div id="ai-loading" class="loader"></div>
-            
-            <div id="story-actions" class="hidden">
-                <button onclick="Game.startLevel()">ابدأ المهمة</button>
+            <div>
+                <div class="text-gray-500 text-xs">الذهب المكتسب</div>
+                <div class="text-yellow-400 text-xl font-bold" id="finalGold">0</div>
             </div>
         </div>
+
+        <button id="btnRetry" class="bg-white text-black font-black py-3 px-10 rounded-full hover:scale-105 transition-transform">
+            محاولة أخرى
+        </button>
+        <button id="btnHome" class="mt-4 text-gray-500 underline text-sm">القائمة الرئيسية</button>
     </div>
 
-    <!-- 3. Game Over Screen -->
-    <div id="screen-over" class="screen hidden">
-        <div class="panel">
-            <h2 style="color:var(--accent)">تحطمت المركبة</h2>
-            <p id="death-reason">انتهت الرحلة.</p>
-            <button onclick="Game.resetCampaign()">إعادة التشغيل</button>
-        </div>
-    </div>
+    <canvas id="gameCanvas"></canvas>
 
-<script>
-(function() {
-/*
- * SYSTEM ARCHITECTURE
- * 1. AI Service: Handles Gemini API calls & JSON parsing.
- * 2. Level Manager: Interprets JSON to set physics, colors, and rules.
- * 3. Game Engine: Rendering, Physics, Loop.
- * 4. UI/Auth: Manages screens and persistence.
- */
+    <script type="module">
+        import { doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-/* --- 1. AI Service --- */
-const AI = {
-    key: null,
-    
-    // التلقين (Prompt) الذي يجبر النموذج على تصميم مرحلة
-    generateLevelPrompt: (levelNum, hp) => `
-    Context: You are the Game Director for a Cyberpunk racing game.
-    Current State: Player is at Level ${levelNum}, Health ${hp}%.
-    Task: Generate the next level parameters in valid JSON format ONLY.
-    
-    Requirements:
-    1. "theme_name": Creative Arabic title (e.g., "صحراء النيون", "النفق المظلم").
-    2. "intro_text": 2 sentences in Arabic setting the scene (e.g., "Detected slippery roads ahead.").
-    3. "colors": Hex codes for "road", "sky", "lines", "obstacle".
-    4. "physics":
-       - "speed_mult": 1.0 to 1.8 (float)
-       - "friction": 0.85 (slippery) to 0.98 (grippy)
-       - "visibility": 0 to 1 (1 is clear, 0.3 is foggy)
-    5. "level_length": 3000 to 8000 (meters).
-    6. "density": 0.5 to 2.0 (obstacle spawn rate).
+        // --- Engine & Canvas ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        let W, H;
 
-    Output Example:
-    {
-      "theme_name": "العاصفة الرقمية",
-      "intro_text": "احذر، الطريق زلق للغاية والرؤية معدومة.",
-      "colors": {"road": "#222", "sky": "#000", "lines": "#0f0", "obstacle": "#f00"},
-      "physics": {"speed_mult": 1.2, "friction": 0.9, "visibility": 0.5},
-      "level_length": 4000,
-      "density": 1.2
-    }
-    `,
+        // --- Config ---
+        const PERKS = [
+            { id: 'multishot', name: 'قذائف متعددة', desc: 'يضيف قذيفة إضافية', rarity: 'rare', color: '#3b82f6' },
+            { id: 'firerate', name: 'رشاش سريع', desc: 'سرعة الإطلاق +20%', rarity: 'common', color: '#ef4444' },
+            { id: 'damage', name: 'رصاص خارق', desc: 'الضرر +25%', rarity: 'common', color: '#f59e0b' },
+            { id: 'speed', name: 'محركات نفاثة', desc: 'سرعة الحركة +15%', rarity: 'common', color: '#10b981' },
+            { id: 'aura', name: 'حقل كهربائي', desc: 'يصعق الأعداء القريبين', rarity: 'epic', color: '#8b5cf6' },
+            { id: 'heal', name: 'إصلاح ذاتي', desc: 'استعادة 30% من الصحة', rarity: 'rare', color: '#ec4899' }
+        ];
 
-    async fetchNextLevel(levelNum, hp) {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${this.key}`;
-        
-        try {
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({
-                    contents: [{ parts: [{ text: this.generateLevelPrompt(levelNum, hp) }] }],
-                    generationConfig: { responseMimeType: "application/json" }
-                })
+        const SHOP_UPGRADES = {
+            baseDmg: { name: 'قوة السلاح', cost: (l) => (l+1)*100, max: 10, val: (l) => 10 + l*2 },
+            maxHp: { name: 'درع البدن', cost: (l) => (l+1)*150, max: 10, val: (l) => 100 + l*20 },
+            magnet: { name: 'مغناطيس', cost: (l) => (l+1)*200, max: 5, val: (l) => 50 + l*20 }, // XP pickup range
+            greed: { name: 'الجشع', cost: (l) => (l+1)*300, max: 5, val: (l) => 1 + l*0.2 }, // Gold multiplier
+        };
+
+        // --- Game State ---
+        let state = {
+            screen: 'MENU', // MENU, GAME, PAUSE, GAMEOVER, SHOP
+            meta: { gold: 0, upgrades: { baseDmg: 0, maxHp: 0, magnet: 0, greed: 0 } },
+            
+            // Runtime
+            time: 0,
+            kills: 0,
+            goldRun: 0,
+            level: 1,
+            xp: 0,
+            xpNext: 100,
+            
+            // Player Runtime Stats (Base + In-game perks)
+            stats: { 
+                hp: 100, maxHp: 100, 
+                dmg: 10, speed: 3, 
+                fireRate: 400, projectiles: 1, 
+                magnet: 50, hasAura: false 
+            },
+
+            // Entities
+            enemies: [],
+            bullets: [],
+            gems: [], // XP & Gold
+            particles: [],
+            texts: [], // Damage numbers
+
+            // Spawner
+            wave: 1,
+            nextSpawn: 0
+        };
+
+        // Global Player Object (Fixed Scope)
+        let player = { x: 0, y: 0, vx: 0, vy: 0, angle: 0, lastShot: 0 };
+
+        let lastTime = 0;
+        let input = { x: 0, y: 0, active: false, startX: 0, startY: 0 };
+
+        // --- Audio System ---
+        let synth, membrane, metal;
+        async function initAudio() {
+            if (synth) return;
+            await Tone.start();
+            
+            // Sound Effects
+            synth = new Tone.PolySynth(Tone.Synth, {
+                oscillator: { type: "triangle" },
+                envelope: { attack: 0.005, decay: 0.1, sustain: 0, release: 0.1 }
+            }).toDestination();
+            synth.volume.value = -10;
+
+            membrane = new Tone.MembraneSynth().toDestination(); // Explosions
+            membrane.volume.value = -15;
+
+            metal = new Tone.MetalSynth({
+                frequency: 200, envelope: { attack: 0.001, decay: 0.1, release: 0.01 },
+                harmonicity: 5.1, modulationIndex: 32, resonance: 4000, octaves: 1.5
+            }).toDestination(); // Pickup
+            metal.volume.value = -20;
+        }
+
+        function playSfx(id) {
+            if(!synth) return;
+            if(id === 'shoot') synth.triggerAttackRelease("C5", "32n", undefined, 0.1);
+            if(id === 'hit') synth.triggerAttackRelease("G2", "32n", undefined, 0.2);
+            if(id === 'gem') metal.triggerAttackRelease("32n");
+            if(id === 'lvlup') {
+                const now = Tone.now();
+                synth.triggerAttackRelease("C4", "8n", now);
+                synth.triggerAttackRelease("E4", "8n", now + 0.1);
+                synth.triggerAttackRelease("G4", "8n", now + 0.2);
+            }
+        }
+
+        // --- Persistence ---
+        function saveMeta() {
+            if (!window.firebaseObj || !window.firebaseObj.getUserId()) {
+                localStorage.setItem('neon_survivor_save', JSON.stringify(state.meta));
+                return;
+            }
+            const ref = doc(window.firebaseObj.db(), `artifacts/${appId}/users/${window.firebaseObj.getUserId()}/data/survivor`);
+            setDoc(ref, state.meta, { merge: true });
+        }
+
+        function loadMeta() {
+            // Local fallback first
+            const local = localStorage.getItem('neon_survivor_save');
+            if(local) state.meta = JSON.parse(local);
+
+            window.firebaseObj.init().then(() => {
+                setTimeout(() => {
+                    if (!window.firebaseObj.getUserId()) return;
+                    const ref = doc(window.firebaseObj.db(), `artifacts/${appId}/users/${window.firebaseObj.getUserId()}/data/survivor`);
+                    onSnapshot(ref, (snap) => {
+                        if (snap.exists()) {
+                            state.meta = snap.data();
+                            updateMenuUI();
+                        }
+                    });
+                }, 1000);
             });
-            const data = await response.json();
-            const text = data.candidates[0].content.parts[0].text;
-            return JSON.parse(text); // تحويل النص إلى كائن برمجي
-        } catch (e) {
-            console.error("AI Generation Failed", e);
-            // Fallback level in case of error
-            return {
-                theme_name: "وضع الطوارئ",
-                intro_text: "فقدنا الاتصال بالخادم. قم بالقيادة يدوياً.",
-                colors: {road: "#111", sky: "#050510", lines: "#fff", obstacle: "#f00"},
-                physics: {speed_mult: 1, friction: 0.95, visibility: 1},
-                level_length: 3000,
-                density: 1
+            updateMenuUI();
+        }
+
+        // --- Core Logic ---
+        function startRun() {
+            // Apply meta upgrades to base stats
+            const m = state.meta.upgrades;
+            const shopDmg = SHOP_UPGRADES.baseDmg.val(m.baseDmg);
+            const shopHp = SHOP_UPGRADES.maxHp.val(m.maxHp);
+            const shopMag = SHOP_UPGRADES.magnet.val(m.magnet);
+
+            state.stats = {
+                hp: shopHp, maxHp: shopHp,
+                dmg: shopDmg, speed: 3,
+                fireRate: 500, projectiles: 1,
+                magnet: shopMag, hasAura: false
             };
-        }
-    }
-};
-
-/* --- 2. Auth & UI --- */
-const Auth = {
-    init() {
-        const key = localStorage.getItem('gemini_key');
-        if (key) {
-            AI.key = key;
-            document.getElementById('screen-login').classList.add('hidden');
-            Game.initCampaign();
-        }
-    },
-    save() {
-        const input = document.getElementById('api-key').value.trim();
-        if (input.length < 10) return alert('مفتاح غير صحيح');
-        localStorage.setItem('gemini_key', input);
-        AI.key = input;
-        document.getElementById('screen-login').classList.add('hidden');
-        Game.initCampaign();
-    },
-    reset() {
-        localStorage.removeItem('gemini_key');
-        location.reload();
-    }
-};
-
-// Expose Auth to global scope for HTML onclick events
-window.Auth = Auth;
-
-/* --- 3. Game Engine --- */
-const canvas = document.getElementById('c');
-const ctx = canvas.getContext('2d');
-let W, H, scale;
-
-const Game = {
-    level: 1,
-    hp: 100,
-    state: 'MENU', // MENU, LOADING, PLAYING, GAMEOVER
-    currentLevelData: null,
-    
-    // Physics & World
-    lanes: [],
-    player: { x: 0, y: 0, w: 50, h: 90, lane: 1, targetX: 0 },
-    obstacles: [],
-    particles: [],
-    speed: 0,
-    distance: 0,
-    globalSpeed: 0, // Road scroll speed
-    
-    resize() {
-        W = canvas.width = window.innerWidth;
-        H = canvas.height = window.innerHeight;
-        scale = Math.min(W/480, 1);
-        Game.lanes = [W*0.25, W*0.5, W*0.75]; // 3 Lanes
-    },
-
-    initCampaign() {
-        Game.level = 1;
-        Game.hp = 100;
-        Game.loadNextLevel();
-    },
-
-    async loadNextLevel() {
-        Game.state = 'LOADING';
-        
-        // UI Setup
-        const storyScreen = document.getElementById('screen-story');
-        storyScreen.classList.remove('hidden');
-        document.getElementById('ai-loading').style.display = 'block';
-        document.getElementById('story-actions').classList.add('hidden');
-        document.getElementById('story-title').innerText = `تحميل المرحلة ${Game.level}`;
-        document.getElementById('story-text').innerText = "جاري الاتصال بالقمر الصناعي لتوليد التضاريس...";
-
-        // Call AI
-        const levelData = await AI.fetchNextLevel(Game.level, Game.hp);
-        Game.currentLevelData = levelData;
-
-        // Apply Data
-        document.getElementById('story-title').innerText = levelData.theme_name;
-        document.getElementById('story-text').innerText = levelData.intro_text;
-        document.getElementById('ai-loading').style.display = 'none';
-        document.getElementById('story-actions').classList.remove('hidden');
-        
-        // Reset Game State for new level
-        Game.distance = 0;
-        Game.speed = 0;
-        Game.obstacles = [];
-        Game.player.lane = 1;
-        Game.player.targetX = Game.lanes[1];
-        Game.player.x = Game.lanes[1];
-    },
-
-    startLevel() {
-        document.getElementById('screen-story').classList.add('hidden');
-        document.getElementById('hud').style.opacity = 1;
-        
-        // Show Title Animation
-        const titleEl = document.getElementById('level-title');
-        titleEl.innerText = Game.currentLevelData.theme_name;
-        titleEl.style.color = Game.currentLevelData.colors.lines;
-        titleEl.classList.add('show-title');
-        setTimeout(() => titleEl.classList.remove('show-title'), 3000);
-
-        Game.state = 'PLAYING';
-        Game.loop();
-    },
-
-    resetCampaign() {
-        document.getElementById('screen-over').classList.add('hidden');
-        Game.initCampaign();
-    },
-
-    move(dir) {
-        if (Game.state !== 'PLAYING') return;
-        const next = Game.player.lane + dir;
-        if (next >= 0 && next < Game.lanes.length) {
-            Game.player.lane = next;
-            Game.player.targetX = Game.lanes[next];
-        }
-    },
-
-    // --- MAIN LOOP ---
-    loop() {
-        if (Game.state !== 'PLAYING') return;
-
-        // 1. Update Physics
-        const physics = Game.currentLevelData.physics;
-        
-        // Accelerate
-        const maxSpeed = 20 * physics.speed_mult;
-        if (Game.speed < maxSpeed) Game.speed += 0.1;
-        Game.globalSpeed = Game.speed * 2; // For scrolling
-        Game.distance += Game.globalSpeed * 0.1;
-
-        // Player Movement (Lerp for friction feel)
-        Game.player.x += (Game.player.targetX - Game.player.x) * (1 - physics.friction + 0.05);
-
-        // Spawn Obstacles
-        const density = Game.currentLevelData.density;
-        if (Math.random() < 0.02 * density) {
-            Game.obstacles.push({
-                lane: Math.floor(Math.random() * 3),
-                y: -100,
-                type: Math.random() > 0.8 ? 'block' : 'car'
-            });
+            
+            state.level = 1;
+            state.xp = 0;
+            state.xpNext = 100;
+            state.time = 0;
+            state.kills = 0;
+            state.goldRun = 0;
+            state.enemies = [];
+            state.bullets = [];
+            state.gems = [];
+            state.particles = [];
+            state.texts = [];
+            
+            player.x = W/2; player.y = H/2;
+            
+            state.screen = 'GAME';
+            toggleUI('hud');
+            initAudio();
+            loop(0);
         }
 
-        // Update Obstacles
-        for (let i = Game.obstacles.length - 1; i >= 0; i--) {
-            let o = Game.obstacles[i];
-            o.y += Game.globalSpeed * 0.8; // Move down
-            o.x = Game.lanes[o.lane];
+        function spawnEnemy() {
+            const angle = Math.random() * Math.PI * 2;
+            const dist = Math.max(W, H) / 1.5 + 50; // Spawn just outside screen
+            const x = player.x + Math.cos(angle) * dist;
+            const y = player.y + Math.sin(angle) * dist;
+            
+            // Difficulty Scaling
+            const difficulty = 1 + state.time / 60; // Harder every minute
+            
+            let type = 'basic';
+            if (state.time > 30 && Math.random() < 0.2) type = 'fast';
+            if (state.time > 60 && Math.random() < 0.1) type = 'tank';
 
-            // Collision
-            if (Math.abs(o.y - (H - 150)) < 60 && Math.abs(o.x - Game.player.x) < 40) {
-                Game.hp -= 20;
-                Game.speed *= 0.5;
-                Game.createParticles(o.x, o.y, Game.currentLevelData.colors.obstacle);
-                Game.obstacles.splice(i, 1);
+            let hp = 20 * difficulty;
+            let speed = 1.5;
+            let size = 15;
+            let color = '#ef4444';
+
+            if (type === 'fast') { speed = 2.5; hp *= 0.6; color = '#f59e0b'; }
+            if (type === 'tank') { speed = 0.8; hp *= 3; size = 25; color = '#8b5cf6'; }
+
+            state.enemies.push({ x, y, hp, maxHp: hp, speed, size, color, type });
+        }
+
+        function createGem(x, y, val, type='xp') {
+            state.gems.push({ x, y, val, type });
+        }
+
+        function createText(x, y, text, color='#fff') {
+            state.texts.push({ x, y, text, color, life: 1, vy: -1 });
+        }
+
+        function checkCollisions() {
+            // Bullets vs Enemies
+            for (let i = state.bullets.length - 1; i >= 0; i--) {
+                const b = state.bullets[i];
+                let hit = false;
+                for (let e of state.enemies) {
+                    const dx = b.x - e.x; const dy = b.y - e.y;
+                    if (dx*dx + dy*dy < (e.size + 5)**2) {
+                        e.hp -= state.stats.dmg;
+                        createText(e.x, e.y, Math.floor(state.stats.dmg), '#fff');
+                        playSfx('hit');
+                        
+                        // Knockback
+                        const angle = Math.atan2(e.y - b.y, e.x - b.x);
+                        e.x += Math.cos(angle) * 10;
+                        e.y += Math.sin(angle) * 10;
+                        
+                        hit = true;
+                        break;
+                    }
+                }
+                if (hit) state.bullets.splice(i, 1);
+            }
+
+            // Enemies vs Player
+            for (let e of state.enemies) {
+                const dx = e.x - player.x; const dy = e.y - player.y;
+                if (dx*dx + dy*dy < (e.size + 10)**2) {
+                    state.stats.hp -= 0.5; // Damage over time contact
+                    if (state.stats.hp <= 0) gameOver();
+                }
+            }
+            
+            // Player vs Gems (Magnet)
+            for (let i = state.gems.length - 1; i >= 0; i--) {
+                const g = state.gems[i];
+                const dx = player.x - g.x; const dy = player.y - g.y;
+                const dist = Math.sqrt(dx*dx + dy*dy);
                 
-                // Shake Effect
-                document.body.style.transform = `translate(${Math.random()*10-5}px, ${Math.random()*10-5}px)`;
-                setTimeout(()=>document.body.style.transform='none', 200);
+                if (dist < state.stats.magnet) {
+                    // Suck in
+                    g.x += (dx / dist) * 8;
+                    g.y += (dy / dist) * 8;
+                }
+                
+                if (dist < 20) {
+                    playSfx('gem');
+                    if (g.type === 'xp') {
+                        state.xp += g.val;
+                        checkLevelUp();
+                    } else {
+                        const amount = Math.floor(g.val * SHOP_UPGRADES.greed.val(state.meta.upgrades.greed));
+                        state.goldRun += amount;
+                    }
+                    state.gems.splice(i, 1);
+                }
+            }
+        }
 
-                if (Game.hp <= 0) {
-                    Game.state = 'GAMEOVER';
-                    document.getElementById('screen-over').classList.remove('hidden');
-                    document.getElementById('death-reason').innerText = `وصلت للمرحلة ${Game.level} - ${Game.currentLevelData.theme_name}`;
+        function checkLevelUp() {
+            if (state.xp >= state.xpNext) {
+                state.xp -= state.xpNext;
+                state.level++;
+                state.xpNext = Math.floor(state.xpNext * 1.2);
+                state.screen = 'PAUSE';
+                playSfx('lvlup');
+                showUpgradeScreen();
+            }
+        }
+
+        function gameOver() {
+            state.screen = 'GAMEOVER';
+            state.meta.gold += state.goldRun;
+            saveMeta();
+            
+            toggleUI('gameOverScreen');
+            document.getElementById('finalTime').textContent = document.getElementById('timeDisplay').textContent;
+            document.getElementById('finalKills').textContent = state.kills;
+            document.getElementById('finalGold').textContent = state.goldRun;
+        }
+
+        // --- Render & Loop ---
+        function loop(ts) {
+            if (state.screen !== 'GAME') return;
+            const dt = (ts - lastTime) / 1000;
+            lastTime = ts;
+            state.time += dt;
+
+            // Update Input Movement
+            if (input.active) {
+                const len = Math.sqrt(input.x**2 + input.y**2);
+                if (len > 0) {
+                    player.x += (input.x / len) * state.stats.speed;
+                    player.y += (input.y / len) * state.stats.speed;
                 }
             }
 
-            if (o.y > H) Game.obstacles.splice(i, 1);
-        }
+            // Camera follow
+            ctx.setTransform(1,0,0,1,0,0);
+            ctx.clearRect(0, 0, W, H);
+            
+            // Center camera on player
+            const camX = W/2 - player.x;
+            const camY = H/2 - player.y;
+            ctx.translate(camX, camY);
 
-        // Check Win Condition
-        const progress = Math.min(100, (Game.distance / Game.currentLevelData.level_length) * 100);
-        document.getElementById('dist-display').innerText = Math.floor(progress) + '%';
-        
-        if (Game.distance >= Game.currentLevelData.level_length) {
-            Game.level++;
-            Game.loadNextLevel();
-            return;
-        }
+            // Draw Grid (World Ref)
+            ctx.strokeStyle = '#1f2937';
+            ctx.lineWidth = 2;
+            const gridSize = 100;
+            const startX = Math.floor((player.x - W/2)/gridSize)*gridSize;
+            const startY = Math.floor((player.y - H/2)/gridSize)*gridSize;
+            
+            ctx.beginPath();
+            for(let x=startX; x<startX+W+gridSize; x+=gridSize) { ctx.moveTo(x, player.y - H); ctx.lineTo(x, player.y + H); }
+            for(let y=startY; y<startY+H+gridSize; y+=gridSize) { ctx.moveTo(player.x - W, y); ctx.lineTo(player.x + W, y); }
+            ctx.stroke();
 
-        // 2. Render
-        Game.draw();
+            // Entities Update & Draw
+            // Gems
+            state.gems.forEach(g => {
+                ctx.fillStyle = g.type === 'xp' ? '#3b82f6' : '#fbbf24';
+                ctx.shadowBlur = 10; ctx.shadowColor = ctx.fillStyle;
+                ctx.beginPath(); ctx.rect(g.x-4, g.y-4, 8, 8); ctx.fill();
+                ctx.shadowBlur = 0;
+            });
 
-        requestAnimationFrame(Game.loop);
-    },
-
-    draw() {
-        const colors = Game.currentLevelData.colors;
-        const phys = Game.currentLevelData.physics;
-
-        // Clear & Background
-        ctx.fillStyle = colors.sky;
-        ctx.fillRect(0, 0, W, H);
-
-        // Road with Perspective
-        ctx.fillStyle = colors.road;
-        const roadW = W * 0.9;
-        const roadX = (W - roadW) / 2;
-        ctx.fillRect(roadX, 0, roadW, H);
-
-        // Moving Grid / Lines
-        ctx.strokeStyle = colors.lines;
-        ctx.lineWidth = 2;
-        ctx.shadowBlur = 10;
-        ctx.shadowColor = colors.lines;
-
-        let offset = (Date.now() * Game.speed * 0.1) % 100;
-        
-        // Vertical Lanes
-        Game.lanes.forEach(x => {
-            ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
-        });
-
-        // Horizontal Grid (Retro effect)
-        for(let i=0; i<H; i+=80) {
-            let y = (i + offset) % H;
-            ctx.globalAlpha = (y / H); // Fade at top
-            ctx.beginPath(); ctx.moveTo(roadX, y); ctx.lineTo(roadX+roadW, y); ctx.stroke();
-        }
-        ctx.globalAlpha = 1;
-
-        // Player
-        ctx.shadowColor = varPrimary;
-        ctx.fillStyle = '#000';
-        ctx.strokeStyle = varPrimary;
-        const px = Game.player.x;
-        const py = H - 150;
-        
-        // Neon Car
-        ctx.beginPath();
-        ctx.moveTo(px, py);
-        ctx.lineTo(px - 20, py + 80); // Left Back
-        ctx.lineTo(px + 20, py + 80); // Right Back
-        ctx.closePath();
-        ctx.fill(); ctx.stroke();
-        
-        // Engine Flame
-        if(Math.random() > 0.5) {
-            ctx.fillStyle = varAccent;
-            ctx.fillRect(px - 5, py + 80, 10, Math.random() * 20);
-        }
-
-        // Obstacles
-        Game.obstacles.forEach(o => {
-            ctx.fillStyle = colors.obstacle;
-            ctx.shadowColor = colors.obstacle;
-            if (o.type === 'block') {
-                ctx.fillRect(o.x - 25, o.y, 50, 50);
-            } else {
-                ctx.beginPath(); ctx.moveTo(o.x, o.y+60); ctx.lineTo(o.x-20, o.y); ctx.lineTo(o.x+20, o.y); ctx.fill();
+            // Player
+            ctx.fillStyle = '#fff';
+            ctx.shadowBlur = 20; ctx.shadowColor = '#06b6d4';
+            ctx.beginPath(); ctx.arc(player.x, player.y, 15, 0, Math.PI*2); ctx.fill();
+            // Aura visual
+            if(state.stats.hasAura) {
+                ctx.strokeStyle = `rgba(139, 92, 246, ${0.3 + Math.sin(ts*0.01)*0.1})`;
+                ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.arc(player.x, player.y, 100, 0, Math.PI*2); ctx.stroke();
             }
-        });
+            ctx.shadowBlur = 0;
 
-        // Particles
-        Game.particles.forEach((p, i) => {
-            p.x += p.vx; p.y += p.vy; p.life -= 0.05;
-            ctx.globalAlpha = p.life;
-            ctx.fillStyle = p.color;
-            ctx.fillRect(p.x, p.y, 4, 4);
-            if(p.life <=0) Game.particles.splice(i, 1);
-        });
-        ctx.globalAlpha = 1;
+            // Auto Fire
+            const now = Date.now();
+            if (!player.lastShot) player.lastShot = 0;
+            if (now - player.lastShot > (100000 / state.stats.fireRate) && state.enemies.length > 0) {
+                // Find nearest
+                let nearest = null; let minDst = Infinity;
+                state.enemies.forEach(e => {
+                    const d = (e.x-player.x)**2 + (e.y-player.y)**2;
+                    if(d < minDst) { minDst = d; nearest = e; }
+                });
 
-        // Fog / Visibility
-        if (phys.visibility < 1) {
-            const grad = ctx.createLinearGradient(0, 0, 0, H);
-            grad.addColorStop(0, colors.sky);
-            grad.addColorStop(phys.visibility, "transparent");
-            ctx.fillStyle = grad;
-            ctx.fillRect(0,0,W,H);
+                if (nearest) {
+                    const angle = Math.atan2(nearest.y - player.y, nearest.x - player.x);
+                    const count = state.stats.projectiles;
+                    for(let i=0; i<count; i++) {
+                        const spread = (i - (count-1)/2) * 0.2;
+                        state.bullets.push({ 
+                            x: player.x, y: player.y, 
+                            vx: Math.cos(angle + spread) * 10, 
+                            vy: Math.sin(angle + spread) * 10,
+                            life: 100 
+                        });
+                    }
+                    playSfx('shoot');
+                    player.lastShot = now;
+                }
+            }
+
+            // Aura Damage Logic
+            if(state.stats.hasAura && ts % 20 < 1) { // Every ~20 frames
+                state.enemies.forEach(e => {
+                    const dist = Math.sqrt((e.x-player.x)**2 + (e.y-player.y)**2);
+                    if(dist < 100) {
+                        e.hp -= state.stats.dmg * 0.5;
+                        createText(e.x, e.y, Math.floor(state.stats.dmg*0.5), '#8b5cf6');
+                    }
+                });
+            }
+
+            // Bullets
+            ctx.fillStyle = '#67e8f9';
+            state.bullets.forEach(b => {
+                b.x += b.vx; b.y += b.vy; b.life--;
+                ctx.beginPath(); ctx.arc(b.x, b.y, 4, 0, Math.PI*2); ctx.fill();
+            });
+            state.bullets = state.bullets.filter(b => b.life > 0);
+
+            // Enemies
+            state.enemies.forEach((e, i) => {
+                // Move towards player
+                const angle = Math.atan2(player.y - e.y, player.x - e.x);
+                e.x += Math.cos(angle) * e.speed;
+                e.y += Math.sin(angle) * e.speed;
+                
+                ctx.fillStyle = e.color;
+                ctx.fillRect(e.x - e.size/2, e.y - e.size/2, e.size, e.size);
+                
+                // Death
+                if (e.hp <= 0) {
+                    createGem(e.x, e.y, 10 + (state.level*2), Math.random() > 0.9 ? 'gold' : 'xp');
+                    state.kills++;
+                    state.enemies.splice(i, 1);
+                }
+            });
+
+            // Spawner
+            if (now > state.nextSpawn) {
+                spawnEnemy();
+                const rate = Math.max(200, 1000 - (state.time * 5)); // Spawn faster over time
+                state.nextSpawn = now + rate;
+            }
+
+            // Texts
+            state.texts.forEach((t, i) => {
+                t.y += t.vy; t.life -= 0.05;
+                ctx.fillStyle = t.color;
+                ctx.font = 'bold 16px Arial';
+                ctx.globalAlpha = Math.max(0, t.life);
+                ctx.fillText(t.text, t.x, t.y);
+                ctx.globalAlpha = 1;
+                if(t.life <= 0) state.texts.splice(i, 1);
+            });
+
+            checkCollisions();
+            updateHUD();
+
+            requestAnimationFrame(loop);
         }
-        
-        // HUD Updates
-        document.getElementById('lvl-display').innerText = Game.level;
-        document.getElementById('hp-display').innerText = Game.hp + '%';
-        document.getElementById('hp-display').style.color = Game.hp < 30 ? '#f00' : '#0f0';
-    },
 
-    createParticles(x, y, color) {
-        for(let i=0; i<15; i++) {
-            Game.particles.push({
-                x: x, y: y,
-                vx: (Math.random() - 0.5) * 10,
-                vy: (Math.random() - 0.5) * 10,
-                life: 1.0, color: color
+        // --- UI & Interactions ---
+        function updateHUD() {
+            // HP
+            document.getElementById('hpDisplay').innerText = Math.floor(state.stats.hp);
+            // XP
+            const pct = (state.xp / state.xpNext) * 100;
+            document.getElementById('xpBar').style.width = `${pct}%`;
+            // Level
+            document.getElementById('lvlDisplay').innerText = state.level;
+            // Gold
+            document.getElementById('goldDisplay').innerText = state.goldRun;
+            // Time
+            const m = Math.floor(state.time / 60);
+            const s = Math.floor(state.time % 60);
+            document.getElementById('timeDisplay').innerText = `${m}:${s < 10 ? '0'+s : s}`;
+        }
+
+        function updateMenuUI() {
+            document.getElementById('menuGold').innerText = state.meta.gold;
+            document.getElementById('shopGold').innerText = state.meta.gold + " 💰";
+        }
+
+        function showUpgradeScreen() {
+            toggleUI('upgradeScreen');
+            const container = document.getElementById('upgradeCards');
+            container.innerHTML = '';
+            
+            // Pick 3 random perks
+            const opts = [];
+            for(let i=0; i<3; i++) opts.push(PERKS[Math.floor(Math.random() * PERKS.length)]);
+            
+            opts.forEach(p => {
+                const div = document.createElement('div');
+                div.className = 'card w-full p-4 rounded-xl flex items-center justify-between';
+                div.style.borderColor = p.color;
+                div.innerHTML = `
+                    <div>
+                        <h3 class="font-bold text-white text-lg" style="color:${p.color}">${p.name}</h3>
+                        <p class="text-sm text-gray-400">${p.desc}</p>
+                    </div>
+                    <button class="bg-gray-700 hover:bg-white hover:text-black text-white px-4 py-2 rounded-lg font-bold transition-colors">اختر</button>
+                `;
+                div.onclick = () => applyPerk(p);
+                container.appendChild(div);
             });
         }
-    }
-};
 
-// Expose Game to global scope
-window.Game = Game;
+        function applyPerk(p) {
+            if (p.id === 'multishot') state.stats.projectiles++;
+            if (p.id === 'firerate') state.stats.fireRate *= 0.8;
+            if (p.id === 'damage') state.stats.dmg *= 1.25;
+            if (p.id === 'speed') state.stats.speed *= 1.15;
+            if (p.id === 'heal') state.stats.hp = Math.min(state.stats.maxHp, state.stats.hp + (state.stats.maxHp * 0.3));
+            if (p.id === 'aura') state.stats.hasAura = true;
 
-// --- Inputs ---
-window.addEventListener('resize', Game.resize);
-Game.resize();
+            state.screen = 'GAME';
+            toggleUI('hud');
+            loop(lastTime); // Resume
+        }
 
-const varPrimary = getComputedStyle(document.body).getPropertyValue('--primary').trim();
-const varAccent = getComputedStyle(document.body).getPropertyValue('--accent').trim();
+        function toggleUI(screenId) {
+            ['mainMenu', 'hud', 'upgradeScreen', 'gameOverScreen', 'shopScreen'].forEach(id => {
+                document.getElementById(id).classList.add('hidden');
+            });
+            document.getElementById(screenId).classList.remove('hidden');
+        }
 
-document.addEventListener('keydown', e => {
-    if (e.key === 'ArrowLeft') Game.move(-1);
-    if (e.key === 'ArrowRight') Game.move(1);
-});
+        function renderShop() {
+            const list = document.getElementById('shopItems');
+            list.innerHTML = '';
+            
+            Object.keys(SHOP_UPGRADES).forEach(key => {
+                const item = SHOP_UPGRADES[key];
+                const currentLvl = state.meta.upgrades[key];
+                const cost = item.cost(currentLvl);
+                const isMax = currentLvl >= item.max;
 
-document.getElementById('t-left').addEventListener('touchstart', (e) => { e.preventDefault(); Game.move(-1); });
-document.getElementById('t-right').addEventListener('touchstart', (e) => { e.preventDefault(); Game.move(1); });
+                const div = document.createElement('div');
+                div.className = 'bg-gray-800 p-4 rounded-xl flex justify-between items-center';
+                div.innerHTML = `
+                    <div>
+                        <div class="font-bold text-white">${item.name} <span class="text-blue-400 text-sm">Lv.${currentLvl}</span></div>
+                        <div class="flex gap-1 mt-1">
+                            ${Array(item.max).fill(0).map((_,i) => `<div class="w-2 h-2 rounded-full ${i < currentLvl ? 'bg-green-500' : 'bg-gray-600'}"></div>`).join('')}
+                        </div>
+                    </div>
+                    <button class="px-4 py-2 rounded-lg font-bold ${state.meta.gold >= cost && !isMax ? 'bg-yellow-600 hover:bg-yellow-500 text-black' : 'bg-gray-700 text-gray-500 cursor-not-allowed'}">
+                        ${isMax ? 'MAX' : cost + '💰'}
+                    </button>
+                `;
+                if(state.meta.gold >= cost && !isMax) {
+                    div.querySelector('button').onclick = () => {
+                        state.meta.gold -= cost;
+                        state.meta.upgrades[key]++;
+                        saveMeta();
+                        updateMenuUI();
+                        renderShop();
+                    };
+                }
+                list.appendChild(div);
+            });
+        }
 
-Auth.init();
-})();
-</script>
+        // --- Inputs ---
+        function resizeCanvas() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
+        
+        window.addEventListener('resize', resizeCanvas);
+        
+        // Virtual Joystick Logic
+        window.addEventListener('pointerdown', e => {
+            if(state.screen !== 'GAME') return;
+            input.active = true;
+            input.startX = e.clientX;
+            input.startY = e.clientY;
+            input.x = 0; input.y = 0;
+        });
+        
+        window.addEventListener('pointermove', e => {
+            if (!input.active) return;
+            const dx = e.clientX - input.startX;
+            const dy = e.clientY - input.startY;
+            // Normalize
+            const dist = Math.min(50, Math.sqrt(dx*dx + dy*dy)); // Max joystick radius
+            const angle = Math.atan2(dy, dx);
+            input.x = Math.cos(angle) * dist;
+            input.y = Math.sin(angle) * dist;
+        });
+        
+        window.addEventListener('pointerup', () => {
+            input.active = false; input.x = 0; input.y = 0;
+        });
+
+        // --- Init ---
+        window.onload = () => {
+            resizeCanvas();
+            loadMeta();
+            
+            document.getElementById('btnStart').onclick = startRun;
+            document.getElementById('btnRetry').onclick = startRun;
+            document.getElementById('btnHome').onclick = () => toggleUI('mainMenu');
+            document.getElementById('btnShop').onclick = () => { toggleUI('shopScreen'); renderShop(); };
+            document.getElementById('btnBack').onclick = () => toggleUI('mainMenu');
+        };
+
+    </script>
 </body>
 </html>
