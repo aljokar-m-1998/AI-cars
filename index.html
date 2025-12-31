@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Neon Survivor: Deep Space</title>
+    <title>Neon Survivor: Extraction</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
     
@@ -41,7 +41,7 @@
     </script>
     
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700;900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@500;700&display=swap');
         
         body {
             font-family: 'Rajdhani', sans-serif;
@@ -53,18 +53,29 @@
             color: white;
         }
 
-        /* Deep Space CSS Background */
         #gameCanvas {
-            background: radial-gradient(circle at center, #0a0a12 0%, #000000 100%);
+            background: radial-gradient(circle at center, #050510 0%, #000000 100%);
         }
 
-        /* Enhanced Glassmorphism */
+        /* Holographic Glass UI */
         .glass-panel {
-            background: rgba(8, 8, 12, 0.65); /* More transparent */
-            backdrop-filter: blur(8px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: 0 0 30px rgba(0, 0, 0, 0.5), inset 0 0 20px rgba(255,255,255,0.02);
-            border-radius: 16px;
+            background: rgba(10, 15, 25, 0.8);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+            border-radius: 8px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        /* Scanline effect for UI */
+        .glass-panel::after {
+            content: "";
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(to bottom, transparent 50%, rgba(0, 0, 0, 0.3) 51%);
+            background-size: 100% 4px;
+            pointer-events: none;
+            opacity: 0.1;
         }
 
         .game-ui {
@@ -76,35 +87,33 @@
         .pointer-auto { pointer-events: auto; }
 
         .xp-rail {
-            position: absolute; top: 0; left: 0; width: 100%; height: 4px; background: rgba(255,255,255,0.1); z-index: 30;
+            position: absolute; top: 0; left: 0; width: 100%; height: 4px; background: rgba(255,255,255,0.05); z-index: 30;
         }
         .xp-fill {
-            height: 100%; background: linear-gradient(90deg, #00f2ff, #0066ff);
-            width: 0%; transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            box-shadow: 0 0 15px #00f2ff;
+            height: 100%; background: linear-gradient(90deg, #0ea5e9, #6366f1);
+            width: 0%; transition: width 0.2s linear;
+            box-shadow: 0 0 15px #0ea5e9;
         }
 
-        @keyframes floatUp {
-            0% { transform: translateY(0) scale(0.8); opacity: 0; }
-            10% { transform: translateY(-20px) scale(1.5); opacity: 1; }
-            100% { transform: translateY(-80px) scale(1); opacity: 0; }
+        @keyframes damageFloat {
+            0% { transform: translateY(0) scale(1); opacity: 0; }
+            10% { transform: translateY(-10px) scale(1.3); opacity: 1; }
+            100% { transform: translateY(-40px) scale(0.8); opacity: 0; }
         }
         .dmg-text {
-            position: absolute; font-weight: 900; pointer-events: none;
-            animation: floatUp 0.8s ease-out forwards;
-            font-family: 'Rajdhani', sans-serif;
-            text-shadow: 0 0 5px currentColor;
+            position: absolute; font-weight: 800; pointer-events: none;
+            animation: damageFloat 0.6s ease-out forwards;
+            font-family: 'Orbitron', sans-serif;
+            text-shadow: 0 0 4px black;
             z-index: 10;
         }
 
-        .neon-text {
-            text-shadow: 0 0 10px currentColor, 0 0 20px currentColor, 0 0 40px currentColor;
-        }
+        .title-font { font-family: 'Orbitron', sans-serif; }
+        .neon-text { text-shadow: 0 0 10px currentColor; }
         
-        /* Custom Scrollbar */
         ::-webkit-scrollbar { width: 4px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 2px; }
+        ::-webkit-scrollbar-track { background: #000; }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
     </style>
 </head>
 <body>
@@ -113,35 +122,33 @@
     <div id="hud" class="hidden absolute inset-0 pointer-events-none z-10">
         <div class="xp-rail"><div id="xpBar" class="xp-fill"></div></div>
         
-        <!-- Pause Button -->
-        <button id="btnPauseGame" class="pointer-auto absolute top-4 left-1/2 -translate-x-1/2 bg-white/5 backdrop-blur border border-white/20 text-white rounded-full w-12 h-12 flex items-center justify-center hover:bg-white/20 transition-all z-50 text-xl shadow-[0_0_15px_rgba(255,255,255,0.2)]">
+        <button id="btnPauseGame" class="pointer-auto absolute top-6 left-1/2 -translate-x-1/2 bg-white/10 backdrop-blur border border-white/20 text-white rounded-full w-12 h-12 flex items-center justify-center hover:bg-white/20 transition-all z-50 text-xl">
             ⏸
         </button>
 
-        <!-- Stats Top Left -->
-        <div class="absolute top-6 left-4 flex flex-col gap-3">
-            <div class="glass-panel px-5 py-2 flex items-center gap-3 border-l-2 border-cyan-400">
-                <span class="text-xs text-gray-400 font-bold uppercase tracking-widest">LVL</span>
-                <span id="lvlDisplay" class="text-white font-black text-4xl neon-text text-cyan-400">1</span>
+        <!-- Stats -->
+        <div class="absolute top-6 left-6 flex flex-col gap-2">
+            <div class="glass-panel px-4 py-2 flex items-center gap-3 border-l-2 border-cyan-500">
+                <span class="text-xs text-cyan-400 font-bold uppercase tracking-wider title-font">LVL</span>
+                <span id="lvlDisplay" class="text-white font-black text-3xl title-font">1</span>
             </div>
-            <div class="text-cyan-100 font-mono text-xl pl-2 opacity-80 tracking-widest drop-shadow-[0_0_5px_rgba(0,255,255,0.5)]" id="timeDisplay">00:00</div>
+            <div class="text-cyan-200 font-mono text-xl pl-1 opacity-80" id="timeDisplay">00:00</div>
         </div>
         
-        <!-- Stats Top Right -->
-        <div class="absolute top-6 right-4 flex flex-col items-end gap-3">
+        <div class="absolute top-6 right-6 flex flex-col items-end gap-2">
             <div class="glass-panel px-4 py-2 text-yellow-400 font-bold border-r-2 border-yellow-500 flex items-center gap-2">
-                <span id="goldRunDisplay">0</span> <span class="text-xl filter drop-shadow-[0_0_5px_yellow]">💎</span>
+                <span id="goldRunDisplay" class="title-font text-xl">0</span> <span>💎</span>
             </div>
-            <!-- HP Bar -->
-            <div class="w-64 h-4 bg-gray-900/50 border border-white/10 relative overflow-hidden rounded-full">
-                <div id="hpBar" class="h-full bg-gradient-to-r from-pink-600 to-rose-500 transition-all duration-200 box-shadow-[0_0_15px_#ec4899]" style="width: 100%"></div>
+            <!-- HP -->
+            <div class="w-64 h-4 bg-gray-900 border border-gray-700 relative overflow-hidden rounded-sm">
+                <div id="hpBar" class="h-full bg-gradient-to-r from-red-600 to-rose-500 transition-all duration-200" style="width: 100%"></div>
             </div>
-            <div class="text-xs font-bold text-gray-400 tracking-widest" id="hpText">100 / 100</div>
+            <div class="text-xs font-bold text-gray-500 tracking-widest" id="hpText">100/100</div>
         </div>
 
-        <!-- Dash Button (Mobile) -->
-        <div id="dashBtn" class="pointer-auto absolute bottom-12 right-8 w-24 h-24 rounded-full bg-cyan-500/10 border border-cyan-400/30 flex items-center justify-center backdrop-blur active:scale-95 transition-transform shadow-[0_0_30px_rgba(6,182,212,0.2)] group">
-            <span class="text-3xl group-hover:scale-110 transition-transform filter drop-shadow-[0_0_10px_cyan]">⚡</span>
+        <!-- Dash (Mobile) -->
+        <div id="dashBtn" class="pointer-auto absolute bottom-10 right-8 w-24 h-24 rounded-full bg-cyan-500/10 border border-cyan-400/30 flex items-center justify-center backdrop-blur active:scale-95 transition-transform">
+            <span class="text-3xl text-cyan-200">⚡</span>
             <svg class="absolute w-full h-full -rotate-90 pointer-events-none">
                 <circle cx="48" cy="48" r="46" fill="none" stroke="#22d3ee" stroke-width="2" 
                         stroke-dasharray="289" id="dashCircle" stroke-dashoffset="0" style="transition: stroke-dashoffset 0.1s linear"/>
@@ -149,135 +156,152 @@
         </div>
     </div>
 
-    <!-- Pause Screen -->
-    <div id="pauseScreen" class="game-ui hidden z-50 bg-black/60 backdrop-blur-md pointer-auto">
-        <div class="glass-panel p-10 w-80 text-center flex flex-col gap-6 border border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.8)]">
-            <h2 class="text-5xl font-black text-white mb-2 tracking-[0.2em] neon-text text-white">PAUSED</h2>
-            <button id="btnResume" class="bg-cyan-600/80 hover:bg-cyan-500 text-white font-bold py-4 tracking-widest transition-all rounded-lg border border-cyan-400/30 shadow-[0_0_20px_rgba(8,145,178,0.4)]">
+    <!-- Pause Menu -->
+    <div id="pauseScreen" class="game-ui hidden z-50 bg-black/80 backdrop-blur-md pointer-auto">
+        <div class="glass-panel p-8 w-80 text-center flex flex-col gap-4 border-t-2 border-white/20">
+            <h2 class="text-4xl font-black text-white mb-2 tracking-widest title-font">PAUSED</h2>
+            <button id="btnResume" class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded transition-all title-font tracking-wider shadow-lg">
                 RESUME
             </button>
-            <button id="btnExit" class="bg-transparent border border-red-500/30 text-red-400 hover:bg-red-500/10 font-bold py-4 tracking-widest transition-all rounded-lg">
-                EXIT
+            <div class="h-px w-full bg-white/10 my-2"></div>
+            <button id="btnRetreat" class="bg-emerald-900/80 border border-emerald-500/50 text-emerald-100 hover:bg-emerald-800 font-bold py-4 rounded transition-all title-font tracking-wider shadow-lg flex flex-col items-center justify-center gap-1">
+                <span>TACTICAL RETREAT</span>
+                <span class="text-[10px] opacity-70 font-sans tracking-normal">End Mission & Keep Loot</span>
+            </button>
+            <button id="btnExit" class="text-red-400 hover:text-red-300 text-xs font-bold py-2 tracking-wider mt-2">
+                SAVE & EXIT (RESUME LATER)
             </button>
         </div>
     </div>
 
     <!-- Upgrade Screen -->
-    <div id="upgradeScreen" class="game-ui hidden z-50 bg-black/80 backdrop-blur-xl pointer-auto">
+    <div id="upgradeScreen" class="game-ui hidden z-50 bg-black/90 backdrop-blur-xl pointer-auto">
         <div class="flex flex-col items-center w-full max-w-md p-6 gap-6 h-full justify-center">
-            <div class="text-center">
-                <h2 class="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-orange-500 mb-4 filter drop-shadow-[0_0_20px_orange]">LEVEL UP</h2>
+            <div class="text-center animate-pulse">
+                <h2 class="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-amber-500 mb-2 title-font">SYSTEM UPGRADE</h2>
             </div>
-            <div id="upgradeCards" class="w-full flex flex-col gap-4"></div>
+            <div id="upgradeCards" class="w-full flex flex-col gap-3"></div>
         </div>
     </div>
 
     <!-- Main Menu -->
     <div id="mainMenu" class="game-ui z-40 bg-black pointer-auto flex-col overflow-y-auto">
-        <!-- Space Background Effect is in Canvas, this is UI layer -->
-        <div class="absolute inset-0 z-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-indigo-900/20 via-black to-black"></div>
+        <div class="absolute inset-0 z-0 bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-blue-900/20 via-black to-black"></div>
 
-        <div class="w-full max-w-md p-6 flex flex-col items-center min-h-screen relative pt-20 z-10">
-            <!-- Title -->
-            <div class="relative mb-16 text-center group">
-                <h1 class="text-8xl font-black text-white tracking-tighter relative z-10 neon-text text-cyan-500" style="font-size: 5rem; line-height: 0.9;">
+        <div class="w-full max-w-md p-6 flex flex-col items-center min-h-screen relative pt-16 z-10">
+            <!-- Header -->
+            <div class="relative mb-12 text-center group">
+                <h1 class="text-7xl font-black text-white tracking-tighter title-font text-transparent bg-clip-text bg-gradient-to-b from-cyan-300 to-blue-600 drop-shadow-[0_0_15px_rgba(6,182,212,0.5)]">
                     NEON<br>SURVIVOR
                 </h1>
-                <div class="text-sm text-cyan-300/70 mt-4 tracking-[0.8em] font-light uppercase border-t border-cyan-500/30 pt-2">Deep Space</div>
+                <div class="text-xs text-gray-500 tracking-[0.6em] mt-4 uppercase border-t border-gray-800 pt-2">Extraction Edition</div>
             </div>
             
-            <!-- Gold Display -->
-            <div class="glass-panel w-full p-6 mb-8 flex justify-between items-center relative overflow-hidden group border border-yellow-500/30">
-                <div class="absolute -right-10 -top-10 w-32 h-32 bg-yellow-500/10 rounded-full blur-3xl"></div>
+            <!-- Bank -->
+            <div class="glass-panel w-full p-6 mb-8 flex justify-between items-center relative overflow-hidden border-l-4 border-yellow-500">
                 <div>
-                    <div class="text-gray-400 text-[10px] uppercase font-bold tracking-wider mb-1">CREDITS</div>
-                    <div class="text-yellow-400 font-black text-5xl global-gold-display drop-shadow-[0_0_10px_rgba(250,204,21,0.5)]">...</div>
+                    <div class="text-gray-400 text-[10px] uppercase font-bold tracking-wider mb-1">TOTAL CREDITS</div>
+                    <div class="text-yellow-400 font-black text-5xl global-gold-display title-font">...</div>
                 </div>
-                <div class="text-5xl opacity-80 group-hover:scale-110 transition-transform filter drop-shadow-[0_0_15px_yellow]">💎</div>
+                <div class="text-5xl opacity-80 filter drop-shadow-[0_0_10px_yellow]">💎</div>
             </div>
 
-            <!-- Buttons -->
+            <!-- Actions -->
             <div class="w-full grid gap-4">
-                <button id="btnResumeRun" class="hidden bg-emerald-900/40 hover:bg-emerald-800/60 text-emerald-100 border border-emerald-500/50 font-bold py-5 text-lg tracking-widest uppercase flex items-center justify-center gap-3 shadow-[0_0_30px_rgba(16,185,129,0.1)] backdrop-blur-md rounded-xl">
-                    <span class="animate-spin text-2xl">⟳</span> Resume
+                <button id="btnResumeRun" class="hidden bg-emerald-900/50 text-emerald-100 border border-emerald-500/30 font-bold py-5 text-lg tracking-widest uppercase flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(16,185,129,0.1)]">
+                    <span>⚡</span> Resume Mission
                 </button>
 
-                <button id="btnStart" class="bg-blue-600/20 hover:bg-blue-600/40 text-blue-100 font-black py-6 text-2xl tracking-widest uppercase transition-all shadow-[0_0_40px_rgba(37,99,235,0.2)] border border-blue-400/40 backdrop-blur-md rounded-xl group relative overflow-hidden">
-                    <span class="relative z-10 group-hover:text-white transition-colors">Launch</span>
-                    <div class="absolute inset-0 bg-blue-500/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
+                <button id="btnStart" class="bg-blue-700 hover:bg-blue-600 text-white font-black py-6 text-2xl tracking-widest uppercase transition-all shadow-[0_0_30px_rgba(29,78,216,0.3)] title-font relative overflow-hidden group border-t border-white/10">
+                    <span class="relative z-10">Deploy Mission</span>
+                    <div class="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
                 </button>
 
                 <div class="grid grid-cols-2 gap-4">
-                    <button id="btnShop" class="glass-panel hover:bg-white/10 text-white font-bold py-6 transition-all flex flex-col items-center gap-2 border border-transparent hover:border-purple-500/50">
-                        <span class="text-4xl mb-1 filter drop-shadow-[0_0_10px_purple]">🧬</span>
-                        <span class="text-[10px] tracking-widest uppercase text-gray-400 group-hover:text-white">Upgrades</span>
+                    <button id="btnShop" class="glass-panel hover:bg-white/5 text-white font-bold py-6 flex flex-col items-center gap-2 border-t-2 border-transparent hover:border-purple-500 transition-colors">
+                        <span class="text-3xl filter drop-shadow-[0_0_5px_purple]">🧬</span>
+                        <span class="text-[10px] tracking-widest uppercase">Research</span>
                     </button>
-                    <button id="btnHeroes" class="glass-panel hover:bg-white/10 text-white font-bold py-6 transition-all flex flex-col items-center gap-2 border border-transparent hover:border-pink-500/50">
-                        <span class="text-4xl mb-1 filter drop-shadow-[0_0_10px_pink]">👺</span>
-                        <span class="text-[10px] tracking-widest uppercase text-gray-400 group-hover:text-white">Heroes</span>
+                    <button id="btnHeroes" class="glass-panel hover:bg-white/5 text-white font-bold py-6 flex flex-col items-center gap-2 border-t-2 border-transparent hover:border-pink-500 transition-colors">
+                        <span class="text-3xl filter drop-shadow-[0_0_5px_pink]">👺</span>
+                        <span class="text-[10px] tracking-widest uppercase">Agents</span>
                     </button>
                 </div>
             </div>
             
-            <div class="mt-auto pb-4 pt-12 opacity-30 hover:opacity-100 transition-opacity">
-                <button onclick="app.resetSave()" class="text-[10px] text-red-500 uppercase tracking-widest border-b border-red-500/30 pb-1">Reset All Systems</button>
+            <div class="mt-auto pb-6 pt-12 opacity-30 hover:opacity-100 transition-opacity text-center">
+                <button onclick="app.resetSave()" class="text-[10px] text-red-500 uppercase tracking-widest border-b border-red-500/30 pb-1">Factory Reset</button>
             </div>
         </div>
     </div>
 
-    <!-- Shop Screen -->
+    <!-- Shop -->
     <div id="shopScreen" class="game-ui hidden z-50 bg-black/95 pointer-auto flex-col backdrop-blur-md">
         <div class="w-full max-w-md p-4 h-full flex flex-col">
-            <div class="flex justify-between items-center mb-6 py-4 border-b border-white/10 sticky top-0 bg-black/50 backdrop-blur-xl z-20">
-                <h2 class="text-3xl font-bold text-white uppercase tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500">Research</h2>
-                <div class="text-yellow-400 font-bold bg-white/5 px-4 py-2 border border-white/10 rounded-lg global-gold-display">0</div>
+            <div class="flex justify-between items-center mb-4 py-4 border-b border-white/10">
+                <h2 class="text-2xl font-bold text-white uppercase tracking-wider title-font">Lab</h2>
+                <div class="text-yellow-400 font-bold global-gold-display bg-white/5 px-3 py-1 rounded">0</div>
             </div>
-            <div id="shopItems" class="space-y-4 overflow-y-auto flex-1 pb-32 pr-2 scrollbar-hide"></div>
-            <div class="absolute bottom-6 left-1/2 -translate-x-1/2 w-[90%]">
-                <button id="btnBackFromShop" class="w-full bg-white/10 text-white font-bold py-4 uppercase tracking-widest hover:bg-white/20 transition-all border border-white/10 rounded-xl backdrop-blur">Back</button>
-            </div>
+            <div id="shopItems" class="space-y-3 overflow-y-auto flex-1 pb-24 scrollbar-hide"></div>
+            <button id="btnBackFromShop" class="w-full bg-white/10 text-white font-bold py-4 uppercase tracking-widest hover:bg-white/20 transition-all mb-4 border border-white/10">Back to Base</button>
         </div>
     </div>
 
-    <!-- Hero Screen -->
+    <!-- Heroes -->
     <div id="heroScreen" class="game-ui hidden z-50 bg-black/95 pointer-auto flex-col backdrop-blur-md">
-        <div class="w-full max-w-md p-6 h-full flex flex-col">
-            <h2 class="text-3xl font-bold text-white mb-6 border-b border-white/10 pb-4 sticky top-0 bg-black/50 backdrop-blur-xl z-20 uppercase tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-pink-400 to-red-500">Agents</h2>
-            <div id="heroGrid" class="grid grid-cols-1 gap-4 overflow-y-auto flex-1 pb-32 pr-1"></div>
-            <div class="absolute bottom-6 left-1/2 -translate-x-1/2 w-[90%]">
-                <button id="btnBackFromHero" class="w-full bg-white/10 text-white font-bold py-4 uppercase tracking-widest hover:bg-white/20 transition-all border border-white/10 rounded-xl backdrop-blur">Back</button>
-            </div>
+        <div class="w-full max-w-md p-4 h-full flex flex-col">
+            <h2 class="text-2xl font-bold text-white mb-4 border-b border-white/10 pb-4 uppercase tracking-wider title-font">Agents</h2>
+            <div id="heroGrid" class="grid grid-cols-1 gap-3 overflow-y-auto flex-1 pb-24"></div>
+            <button id="btnBackFromHero" class="w-full bg-white/10 text-white font-bold py-4 uppercase tracking-widest hover:bg-white/20 transition-all mb-4 border border-white/10">Back to Base</button>
         </div>
     </div>
 
-    <!-- Game Over -->
+    <!-- Game Over (Fail) -->
     <div id="gameOverScreen" class="game-ui hidden z-50 bg-black/90 backdrop-blur-xl pointer-auto flex-col">
-        <h2 class="text-8xl font-black text-white mb-2 tracking-tighter neon-text text-red-600 animate-pulse">KIA</h2>
-        <p class="text-red-500 font-mono tracking-[0.5em] text-xs mb-12 uppercase">Signal Lost</p>
+        <h2 class="text-7xl font-black text-red-600 mb-2 tracking-tighter title-font drop-shadow-[0_0_15px_red]">K.I.A.</h2>
+        <p class="text-red-500 font-mono tracking-[0.5em] text-xs mb-8 uppercase">Signal Lost</p>
         
-        <div class="glass-panel p-8 w-80 text-center mb-8 border border-red-500/30 shadow-[0_0_60px_rgba(220,38,38,0.15)]">
+        <div class="glass-panel p-8 w-80 text-center mb-8 border-t-4 border-red-600">
             <div class="grid grid-cols-2 gap-8 mb-6 border-b border-white/10 pb-6">
                 <div>
                     <div class="text-[10px] text-gray-500 uppercase tracking-widest mb-1">Time</div>
-                    <div class="text-white text-3xl font-mono font-bold drop-shadow-[0_0_5px_white]" id="endStatsTime">00:00</div>
+                    <div class="text-white text-2xl font-mono font-bold" id="endStatsTime">00:00</div>
                 </div>
                 <div>
                     <div class="text-[10px] text-gray-500 uppercase tracking-widest mb-1">Kills</div>
-                    <div class="text-white text-3xl font-mono font-bold drop-shadow-[0_0_5px_white]" id="endStatsKills">0</div>
+                    <div class="text-white text-2xl font-mono font-bold" id="endStatsKills">0</div>
                 </div>
             </div>
             <div>
                 <div class="text-[10px] text-gray-500 uppercase mb-2">Loot Secured</div>
-                <div class="text-yellow-400 text-6xl font-black flex justify-center items-center gap-3 filter drop-shadow-[0_0_15px_yellow]">
+                <div class="text-yellow-400 text-5xl font-black flex justify-center items-center gap-3 title-font">
                     <span id="endStatsGold">0</span> <span class="text-3xl">💎</span>
                 </div>
             </div>
         </div>
 
-        <button id="btnRetry" class="bg-white text-black font-black py-4 px-16 hover:scale-105 transition-transform shadow-[0_0_40px_rgba(255,255,255,0.4)] text-xl mb-4 uppercase tracking-widest rounded-full">
-            Re-Deploy
-        </button>
+        <button id="btnRetry" class="bg-white text-black font-black py-4 px-16 hover:scale-105 transition-transform text-xl mb-4 uppercase tracking-widest title-font">Re-Deploy</button>
         <button id="btnHome" class="text-gray-500 hover:text-white transition-colors text-xs tracking-widest uppercase mt-4">Return to Base</button>
+    </div>
+
+    <!-- Extraction Success -->
+    <div id="extractionScreen" class="game-ui hidden z-50 bg-emerald-950/90 backdrop-blur-xl pointer-auto flex-col">
+        <h2 class="text-6xl font-black text-emerald-400 mb-2 tracking-tighter title-font drop-shadow-[0_0_15px_#34d399]">SUCCESS</h2>
+        <p class="text-emerald-200 font-mono tracking-[0.5em] text-xs mb-8 uppercase">Extraction Complete</p>
+        
+        <div class="glass-panel p-8 w-80 text-center mb-8 border-t-4 border-emerald-500 shadow-[0_0_30px_rgba(16,185,129,0.2)]">
+            <div class="mb-6">
+                <div class="text-[10px] text-emerald-400/70 uppercase tracking-widest mb-2">Total Loot Secured</div>
+                <div class="text-yellow-400 text-6xl font-black flex justify-center items-center gap-3 title-font drop-shadow-md">
+                    <span id="extractGold">0</span> <span class="text-3xl">💎</span>
+                </div>
+            </div>
+            <div class="text-xs text-emerald-300 font-mono">Funds transferred to account.</div>
+        </div>
+
+        <button id="btnExtractHome" class="bg-emerald-600 hover:bg-emerald-500 text-white font-black py-4 px-12 rounded transition-all text-xl mb-4 uppercase tracking-widest title-font shadow-lg">
+            Return to Base
+        </button>
     </div>
 
     <canvas id="gameCanvas"></canvas>
@@ -285,21 +309,21 @@
     <script type="module">
         import { doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // --- Game Data (English) ---
+        // --- Config ---
         const HEROES = [
-            { id: 'soldier', name: 'COMMANDER', desc: 'Balanced. Heavy Rifle.', cost: 0, hp: 150, speed: 3.5, img: '👮', color: '#00ccff', weapon: 'gun' },
-            { id: 'tank', name: 'TITAN', desc: 'High HP. Area Damage.', cost: 2500, hp: 300, speed: 2.5, img: '🦾', color: '#00ff99', weapon: 'orbit' },
-            { id: 'ninja', name: 'SPECTRE', desc: 'Fast. Critical Strikes.', cost: 5000, hp: 100, speed: 5.0, img: '🥷', color: '#ff0055', weapon: 'shuriken' },
-            { id: 'mage', name: 'VOLT', desc: 'Chain Lightning.', cost: 8000, hp: 120, speed: 3.2, img: '⛈️', color: '#cc00ff', weapon: 'lightning' }
+            { id: 'soldier', name: 'COMMANDER', desc: 'Balanced. Heavy Rifle.', cost: 0, hp: 150, speed: 4.5, img: '👮', color: '#3b82f6', weapon: 'gun' },
+            { id: 'tank', name: 'TITAN', desc: 'Tanky. Area Damage.', cost: 3000, hp: 350, speed: 3.5, img: '🦾', color: '#10b981', weapon: 'orbit' },
+            { id: 'ninja', name: 'SPECTRE', desc: 'Fast. High Crit.', cost: 6000, hp: 110, speed: 6.0, img: '🥷', color: '#f43f5e', weapon: 'shuriken' },
+            { id: 'mage', name: 'VOLT', desc: 'Auto-Aim Lightning.', cost: 9000, hp: 130, speed: 4.0, img: '⛈️', color: '#8b5cf6', weapon: 'lightning' }
         ];
 
         const PERM_UPGRADES = {
-            damage: { name: 'Kinetic Boost', desc: 'Damage +10%', max: 50, cost: l => 100 + (l * 150), val: l => l * 0.1 }, 
-            health: { name: 'Nano Armor', desc: 'Health +20', max: 50, cost: l => 100 + (l * 150), val: l => l * 20 }, 
-            speed:  { name: 'Thrusters', desc: 'Speed +3% (Max 50%)', max: 15, cost: l => 200 + (l * 200), val: l => l * 0.03 },
-            regen:  { name: 'Bio-Repair', desc: 'HP/Sec +0.5', max: 20, cost: l => 300 + (l * 250), val: l => l * 0.5 },
-            magnet: { name: 'Loot Range', desc: 'Range +15%', max: 15, cost: l => 150 + (l * 150), val: l => l * 0.15 },
-            greed:  { name: 'Crypto Miner', desc: 'Gold Gain +10%', max: 20, cost: l => 250 + (l * 250), val: l => l * 0.1 } 
+            damage: { name: 'Kinetic Boost', desc: 'Damage +10%', max: 50, cost: l => 150 + (l * 200), val: l => l * 0.1 }, 
+            health: { name: 'Nano Armor', desc: 'Health +20', max: 50, cost: l => 150 + (l * 200), val: l => l * 20 }, 
+            speed:  { name: 'Thrusters', desc: 'Speed +3%', max: 20, cost: l => 250 + (l * 250), val: l => l * 0.03 },
+            regen:  { name: 'Bio-Repair', desc: 'HP/Sec +0.5', max: 20, cost: l => 350 + (l * 300), val: l => l * 0.5 },
+            magnet: { name: 'Loot Range', desc: 'Range +15%', max: 15, cost: l => 200 + (l * 200), val: l => l * 0.15 },
+            greed:  { name: 'Crypto Miner', desc: 'Gold Gain +10%', max: 20, cost: l => 300 + (l * 300), val: l => l * 0.1 } 
         };
 
         const INGAME_UPGRADES = [
@@ -313,7 +337,7 @@
             { id: 'crit', name: 'Targeting Sys', desc: 'Crit Chance +10%', rarity: 'rare', color: '#e879f9' }
         ];
 
-        // --- Engine & State ---
+        // --- Engine ---
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
@@ -329,18 +353,19 @@
             },
             player: null,
             enemies: [],
+            enemyBullets: [],
             bullets: [],
             gems: [],
             particles: [],
             texts: [],
-            stars: [], // New Starfield
+            stars: [],
             time: 0, level: 1, xp: 0, xpNext: 100, kills: 0, runGold: 0,
             spawner: { next: 0 },
             camera: { x: 0, y: 0, shake: 0 },
             input: { active: false, x: 0, y: 0, px: 0, py: 0 }
         };
 
-        // --- Sound ---
+        // --- Audio ---
         let AudioSys = {
             synth: null,
             init: async () => {
@@ -360,14 +385,17 @@
                     if(type === 'levelup') AudioSys.synth.triggerAttackRelease(["C4","E4","G4","C5"], "8n");
                     if(type === 'explode') AudioSys.bass.triggerAttackRelease("C1", "16n");
                     if(type === 'dash') AudioSys.bass.triggerAttackRelease("G2", "16n");
+                    if(type === 'eshoot') AudioSys.synth.triggerAttackRelease("A2", "64n", undefined, 0.05);
+                    if(type === 'success') AudioSys.synth.triggerAttackRelease(["C4","E4","G4","C5","E5"], "4n");
                 } catch(e) {}
             }
         };
 
-        // --- Sync & Persistence ---
+        // --- State Management ---
         function updateGlobalUI() {
+            const val = Game.data.gold.toLocaleString();
             document.querySelectorAll('.global-gold-display').forEach(el => {
-                el.innerText = Game.data.gold.toLocaleString();
+                el.innerText = val;
             });
         }
 
@@ -378,12 +406,12 @@
                 upgrades: Game.data.upgrades, 
                 selectedHero: Game.data.selectedHero 
             };
-            updateGlobalUI();
+            updateGlobalUI(); 
             if (window.firebaseObj && window.firebaseObj.getUserId()) {
                 const ref = doc(window.firebaseObj.db(), `artifacts/${appId}/users/${window.firebaseObj.getUserId()}/data/neon_profile`);
                 setDoc(ref, dataToSave, { merge: true });
             } else {
-                localStorage.setItem('neon_deep_profile', JSON.stringify(dataToSave));
+                localStorage.setItem('neon_ext_profile', JSON.stringify(dataToSave));
             }
         }
 
@@ -401,14 +429,30 @@
                 time: Game.time, level: Game.level, xp: Game.xp, xpNext: Game.xpNext,
                 kills: Game.kills, runGold: Game.runGold, heroId: Game.data.selectedHero
             };
-            localStorage.setItem('neon_deep_run', JSON.stringify(runData));
+            localStorage.setItem('neon_ext_run', JSON.stringify(runData));
         }
 
         function clearSavedRun() {
-            localStorage.removeItem('neon_deep_run');
+            localStorage.removeItem('neon_ext_run');
             updateResumeButton();
         }
 
+        // --- The "Extraction" Mechanic ---
+        function tacticalRetreat() {
+            // 1. Add run gold to bank immediately
+            Game.data.gold += Game.runGold;
+            saveProfile(); // Persist changes
+            
+            // 2. Clear run state (we finished it)
+            clearSavedRun();
+            
+            // 3. Show Success Screen
+            document.getElementById('extractGold').innerText = Game.runGold.toLocaleString();
+            setScreen('EXTRACTION');
+            AudioSys.play('success');
+        }
+
+        // --- Initialization ---
         window.app = {
             onAuth: (uid, db) => {
                 const ref = doc(db, `artifacts/${appId}/users/${uid}/data/neon_profile`);
@@ -421,14 +465,14 @@
                 });
             },
             resetSave: () => {
-                if(confirm('Warning: Factory Reset? All data will be wiped.')) {
+                if(confirm('Warning: This will wipe all progress. Continue?')) {
                     localStorage.clear();
                     location.reload();
                 }
             }
         };
 
-        const local = JSON.parse(localStorage.getItem('neon_deep_profile') || 'null');
+        const local = JSON.parse(localStorage.getItem('neon_ext_profile') || 'null');
         if(local) {
             Game.data = { ...Game.data, ...local };
             if(!Game.data.upgrades) Game.data.upgrades = {};
@@ -436,30 +480,24 @@
         }
 
         function updateResumeButton() {
-            const hasRun = localStorage.getItem('neon_deep_run');
+            const hasRun = localStorage.getItem('neon_ext_run');
             const btn = document.getElementById('btnResumeRun');
             if(hasRun) btn.classList.remove('hidden');
             else btn.classList.add('hidden');
         }
 
-        // --- Starfield System (Visuals) ---
         function initStars() {
             Game.stars = [];
-            for(let i=0; i<150; i++) {
+            for(let i=0; i<120; i++) {
                 Game.stars.push({
-                    x: Math.random() * W,
-                    y: Math.random() * H,
-                    size: Math.random() * 2 + 0.5,
-                    alpha: Math.random() * 0.5 + 0.1,
-                    speed: Math.random() * 0.5 + 0.1 // Parallax factor
+                    x: Math.random() * W, y: Math.random() * H,
+                    size: Math.random() * 2 + 0.5, alpha: Math.random() * 0.5 + 0.1, speed: Math.random() * 0.3 + 0.1
                 });
             }
         }
 
-        // --- Core Loop ---
         function init() {
-            resize();
-            initStars();
+            resize(); initStars();
             window.addEventListener('resize', () => { resize(); initStars(); });
             updateResumeButton();
             updateGlobalUI();
@@ -468,7 +506,6 @@
                 if (document.hidden && Game.state === 'GAME') togglePause();
             });
 
-            // Input
             const handleStart = (e) => {
                 if(Game.state !== 'GAME') return;
                 Game.input.active = true;
@@ -500,13 +537,25 @@
             document.getElementById('dashBtn').onclick = playerDash;
             document.getElementById('btnShop').onclick = () => { setScreen('SHOP'); renderShop(); };
             document.getElementById('btnHeroes').onclick = () => { setScreen('HEROES'); renderHeroes(); };
+            
             document.getElementById('btnPauseGame').onclick = togglePause;
             document.getElementById('btnResume').onclick = togglePause;
-            document.getElementById('btnExit').onclick = () => { saveCurrentRun(); setScreen('MENU'); updateResumeButton(); };
+            
+            // New Retreat Button Logic
+            document.getElementById('btnRetreat').onclick = tacticalRetreat;
+            
+            // Regular Save & Exit (Resume Later)
+            document.getElementById('btnExit').onclick = () => { 
+                saveCurrentRun(); 
+                setScreen('MENU'); 
+                updateResumeButton(); 
+            };
+
             document.getElementById('btnBackFromShop').onclick = () => setScreen('MENU');
             document.getElementById('btnBackFromHero').onclick = () => setScreen('MENU');
             document.getElementById('btnRetry').onclick = () => startGame(false);
             document.getElementById('btnHome').onclick = () => setScreen('MENU');
+            document.getElementById('btnExtractHome').onclick = () => setScreen('MENU');
 
             requestAnimationFrame(loop);
         }
@@ -515,6 +564,8 @@
             Game.state = screen;
             document.querySelectorAll('.game-ui').forEach(el => el.classList.add('hidden'));
             document.getElementById('hud').classList.add('hidden');
+            
+            updateGlobalUI(); 
 
             if(screen === 'MENU') document.getElementById('mainMenu').classList.remove('hidden');
             if(screen === 'GAME') document.getElementById('hud').classList.remove('hidden');
@@ -525,6 +576,7 @@
             if(screen === 'SHOP') document.getElementById('shopScreen').classList.remove('hidden');
             if(screen === 'HEROES') document.getElementById('heroScreen').classList.remove('hidden');
             if(screen === 'GAMEOVER') document.getElementById('gameOverScreen').classList.remove('hidden');
+            if(screen === 'EXTRACTION') document.getElementById('extractionScreen').classList.remove('hidden');
             if(screen === 'LEVELUP') document.getElementById('upgradeScreen').classList.remove('hidden');
         }
 
@@ -540,7 +592,7 @@
         function startGame(isResume) {
             let savedRun = null;
             if(isResume) {
-                try { savedRun = JSON.parse(localStorage.getItem('neon_deep_run')); } catch(e){}
+                try { savedRun = JSON.parse(localStorage.getItem('neon_ext_run')); } catch(e){}
             }
 
             if(isResume && savedRun) {
@@ -567,7 +619,10 @@
                     dashCd: 0,
                     weapon: { 
                         type: hero.weapon, 
-                        dmg: 12 * dmgMult, rate: 30, count: 1, lastShot: 0, critChance: 0.05
+                        dmg: 25 * dmgMult, 
+                        rate: 22, 
+                        count: 1, lastShot: 0, 
+                        critChance: 0.10
                     },
                     magnet: 100 * (1 + magnetBonus),
                     passives: { orbit: 0, lightning: 0, regen: regen },
@@ -578,7 +633,7 @@
                 Game.runGold = 0; Game.kills = 0;
             }
 
-            Game.enemies = []; Game.bullets = []; Game.gems = []; Game.particles = []; Game.texts = [];
+            Game.enemies = []; Game.bullets = []; Game.enemyBullets = []; Game.gems = []; Game.particles = []; Game.texts = [];
             Game.spawner = { next: Game.time };
             
             setScreen('GAME');
@@ -700,38 +755,54 @@
                 let size = 15, color = '#ef4444', xp = 1;
 
                 const roll = Math.random();
-                if(roll < 0.2) { type = 'rusher'; speed *= 1.6; hp *= 0.6; color = '#fbbf24'; } 
-                if(roll > 0.9) { type = 'tank'; speed *= 0.7; hp *= 4; size=28; color = '#818cf8'; xp=5; } 
+                if(roll < 0.15) { type = 'rusher'; speed *= 2.5; hp *= 0.5; color = '#fbbf24'; } 
+                else if(roll < 0.25) { type = 'tank'; speed *= 0.7; hp *= 5; size=28; color = '#818cf8'; xp=5; } 
+                else if(roll < 0.4) { type = 'shooter'; speed *= 0.8; hp *= 1.2; color = '#f97316'; xp=3; } 
 
                 const isElite = Math.floor(Game.time) % 60 > 55 && Math.random() < 0.05;
                 if(isElite) {
-                    type = 'elite'; hp *= 20; size = 60; speed = 1.8; color = '#9333ea'; xp = 50;
+                    type = 'elite'; hp *= 25; size = 60; speed = 1.8; color = '#9333ea'; xp = 50;
                     Game.texts.push({x:Game.player.x, y:Game.player.y-100, text:"⚠️ ELITE ⚠️", color:"#9333ea", life:3, vy:0});
                 }
 
-                Game.enemies.push({ x: ex, y: ey, hp, maxHp: hp, speed, size, color, xp, isElite });
+                Game.enemies.push({ x: ex, y: ey, hp, maxHp: hp, speed, size, color, xp, type, lastShot: 0 });
                 Game.spawner.next = Game.time + Math.max(0.05, 0.8 - (factor * 0.05));
             }
 
             for(let e of Game.enemies) {
-                const angle = Math.atan2(Game.player.y - e.y, Game.player.x - e.x);
-                e.x += Math.cos(angle) * e.speed;
-                e.y += Math.sin(angle) * e.speed;
+                const dx = Game.player.x - e.x;
+                const dy = Game.player.y - e.y;
+                const dist = Math.hypot(dx, dy);
+                const angle = Math.atan2(dy, dx);
+
+                if(e.type === 'shooter') {
+                    if(dist > 250) {
+                        e.x += Math.cos(angle) * e.speed; e.y += Math.sin(angle) * e.speed;
+                    } else if (dist < 150) {
+                        e.x -= Math.cos(angle) * e.speed * 0.5; e.y -= Math.sin(angle) * e.speed * 0.5;
+                    }
+                    if(Game.time > e.lastShot && dist < 400) {
+                        Game.enemyBullets.push({ x: e.x, y: e.y, vx: Math.cos(angle)*6, vy: Math.sin(angle)*6, life: 100 });
+                        e.lastShot = Game.time + 2;
+                        AudioSys.play('eshoot');
+                    }
+                } else {
+                    e.x += Math.cos(angle) * e.speed; e.y += Math.sin(angle) * e.speed;
+                }
 
                 if(Math.random() < 0.2) { 
                    for(let other of Game.enemies) {
                        if(e === other) continue;
-                       const dx = e.x - other.x;
-                       const dy = e.y - other.y;
-                       if(Math.abs(dx) < 30 && Math.abs(dy) < 30) { 
-                           e.x += dx * 0.1; e.y += dy * 0.1;
+                       const edx = e.x - other.x, edy = e.y - other.y;
+                       if(Math.abs(edx) < 30 && Math.abs(edy) < 30) { 
+                           e.x += edx * 0.1; e.y += edy * 0.1;
                        }
                    }
                 }
 
                 if((Game.player.invincible||0) <= 0) {
-                    if(Math.hypot(e.x - Game.player.x, e.y - Game.player.y) < e.size + 15) {
-                        Game.player.hp -= 20;
+                    if(dist < e.size + 15) {
+                        Game.player.hp -= 15;
                         Game.player.invincible = 30;
                         Game.camera.shake = 10;
                         AudioSys.play('hit');
@@ -755,6 +826,22 @@
                         spawnExplosion(b.x, b.y, b.color, 3, false); 
                         Game.bullets.splice(i, 1);
                         break;
+                    }
+                }
+            }
+
+            for(let i=Game.enemyBullets.length-1; i>=0; i--) {
+                const b = Game.enemyBullets[i];
+                b.x += b.vx; b.y += b.vy; b.life--;
+                if(b.life <= 0) { Game.enemyBullets.splice(i,1); continue; }
+
+                if((Game.player.invincible||0) <= 0) {
+                    if(Math.hypot(b.x - Game.player.x, b.y - Game.player.y) < 15) {
+                        Game.player.hp -= 10;
+                        Game.player.invincible = 30;
+                        AudioSys.play('hit');
+                        Game.enemyBullets.splice(i, 1);
+                        if(Game.player.hp <= 0) gameOver();
                     }
                 }
             }
@@ -855,7 +942,7 @@
                 card.style.borderLeftColor = u.color;
                 card.innerHTML = `
                     <div class="flex flex-col">
-                        <span class="font-bold text-lg text-white">${u.name}</span>
+                        <span class="font-bold text-lg text-white title-font">${u.name}</span>
                         <span class="text-xs text-gray-400">${u.desc}</span>
                     </div>
                     <div class="text-xs font-bold px-2 py-1 rounded bg-gray-800" style="color:${u.color}">${u.rarity.toUpperCase()}</div>
@@ -891,7 +978,6 @@
                 ctx.setTransform(1,0,0,1,0,0);
             }
 
-            // Clear with deep space black
             ctx.fillStyle = '#020205';
             ctx.fillRect(0,0,W,H);
 
@@ -899,9 +985,6 @@
             const camX = W/2 - p.x;
             const camY = H/2 - p.y;
 
-            // --- Draw Stars (Parallax) ---
-            // We draw stars BEFORE translating the context for the game world, 
-            // but we calculate their position based on player movement
             Game.stars.forEach(star => {
                 let x = (star.x - p.x * star.speed) % W;
                 let y = (star.y - p.y * star.speed) % H;
@@ -918,9 +1001,6 @@
 
             ctx.translate(camX, camY);
 
-            // --- Game World ---
-            
-            // Faint Grid (Holo effect)
             ctx.strokeStyle = '#111827'; ctx.lineWidth = 1;
             const gs = 200;
             const sx = Math.floor((p.x - W/2)/gs)*gs, sy = Math.floor((p.y - H/2)/gs)*gs;
@@ -929,10 +1009,8 @@
             for(let y=sy; y<sy+H+gs; y+=gs) { ctx.moveTo(p.x-W, y); ctx.lineTo(p.x+W, y); }
             ctx.stroke();
 
-            // Set Glow Mode
             ctx.globalCompositeOperation = 'lighter';
 
-            // Gems (Neon)
             Game.gems.forEach(g => {
                 const color = g.type === 'gold' ? '#fbbf24' : '#06b6d4';
                 ctx.shadowBlur = 10; ctx.shadowColor = color; ctx.fillStyle = color;
@@ -940,23 +1018,18 @@
                 ctx.shadowBlur = 0;
             });
 
-            // Trail
             p.trail.forEach(t => {
                 ctx.globalAlpha = t.life * 0.2; ctx.fillStyle = p.color;
                 ctx.beginPath(); ctx.arc(t.x, t.y, 10, 0, Math.PI*2); ctx.fill();
             });
             ctx.globalAlpha = 1;
 
-            // Player (Glowing Core)
             ctx.shadowBlur = 25; ctx.shadowColor = p.color; ctx.fillStyle = p.invincible > 0 ? '#fff' : p.color;
             ctx.beginPath(); ctx.arc(p.x, p.y, 16, 0, Math.PI*2); ctx.fill();
-            
-            // Player Pulse Ring
             ctx.strokeStyle = p.color; ctx.lineWidth = 2; ctx.globalAlpha = 0.5 + Math.sin(Game.time * 5) * 0.3;
             ctx.beginPath(); ctx.arc(p.x, p.y, 22, 0, Math.PI*2); ctx.stroke();
             ctx.globalAlpha = 1; ctx.shadowBlur = 0;
 
-            // Orbits
             if(p.passives.orbit > 0) {
                 const spd = Game.time * 3;
                 const count = p.passives.orbit * 2;
@@ -968,17 +1041,15 @@
                 }
             }
 
-            // Enemies (Neon Outlines)
             Game.enemies.forEach(e => {
                 ctx.save();
                 ctx.translate(e.x, e.y);
                 const angle = Math.atan2(p.y - e.y, p.x - e.x);
                 ctx.rotate(angle);
                 
-                // Color Intensity
                 ctx.fillStyle = e.color;
-                if(e.isElite) { ctx.shadowBlur = 30; ctx.shadowColor = e.color; }
-                else { ctx.shadowBlur = 5; ctx.shadowColor = e.color; }
+                ctx.shadowBlur = e.isElite ? 30 : 5; 
+                ctx.shadowColor = e.color;
 
                 ctx.beginPath();
                 ctx.moveTo(e.size/2, 0);
@@ -991,14 +1062,18 @@
                 ctx.restore();
             });
 
-            // Bullets (Lasers)
             Game.bullets.forEach(b => {
                 ctx.shadowBlur = 10; ctx.shadowColor = b.color; ctx.fillStyle = b.color;
                 ctx.beginPath(); ctx.arc(b.x, b.y, 3, 0, Math.PI*2); ctx.fill();
             });
+
+            Game.enemyBullets.forEach(b => {
+                ctx.shadowBlur = 10; ctx.shadowColor = '#f97316'; ctx.fillStyle = '#f97316';
+                ctx.beginPath(); ctx.arc(b.x, b.y, 5, 0, Math.PI*2); ctx.fill();
+            });
+
             ctx.shadowBlur = 0;
 
-            // Particles (Glow Sparks)
             Game.particles.forEach((pt, i) => {
                 if(pt.type === 'shockwave') {
                     ctx.strokeStyle = pt.color; ctx.lineWidth = 2 * pt.life; ctx.globalAlpha = pt.life;
@@ -1020,14 +1095,12 @@
                 if(pt.life <= 0) Game.particles.splice(i, 1);
             });
 
-            // Reset Blend Mode for Text
             ctx.globalCompositeOperation = 'source-over';
             ctx.globalAlpha = 1;
 
-            // Damage Numbers
             Game.texts.forEach((t, i) => {
                 ctx.fillStyle = t.color;
-                ctx.font = t.isCrit ? "900 24px 'Rajdhani'" : "700 16px 'Rajdhani'";
+                ctx.font = t.isCrit ? "900 24px 'Orbitron'" : "700 16px 'Rajdhani'";
                 ctx.shadowColor = '#000'; ctx.shadowBlur = 4;
                 ctx.fillText(t.text, t.x, t.y);
                 t.y += t.vy; t.life -= 0.02;
@@ -1040,7 +1113,7 @@
         function updateHUD() {
             const hpPct = Math.max(0, (Game.player.hp / Game.player.maxHp) * 100);
             document.getElementById('hpBar').style.width = `${hpPct}%`;
-            document.getElementById('hpText').innerText = `${Math.ceil(Game.player.hp)} / ${Math.ceil(Game.player.maxHp)}`;
+            document.getElementById('hpText').innerText = `${Math.ceil(Game.player.hp)}/${Math.ceil(Game.player.maxHp)}`;
             const xpPct = (Game.xp / Game.xpNext) * 100;
             document.getElementById('xpBar').style.width = `${xpPct}%`;
             document.getElementById('lvlDisplay').innerText = Game.level;
@@ -1064,7 +1137,7 @@
                 div.innerHTML = `
                     <div class="flex-1">
                         <div class="flex items-center gap-2">
-                            <span class="font-bold text-white text-lg font-rajdhani">${u.name}</span>
+                            <span class="font-bold text-white text-lg title-font">${u.name}</span>
                             <span class="text-[10px] bg-blue-900 px-2 py-0.5 rounded text-blue-200">LVL ${lvl}</span>
                         </div>
                         <div class="text-xs text-gray-400 mt-1">${u.desc}</div>
@@ -1097,7 +1170,7 @@
                 div.innerHTML = `
                     <div class="text-4xl bg-black/50 p-3 rounded-full border border-white/10">${h.img}</div>
                     <div class="flex-1">
-                        <div class="font-black text-white text-lg tracking-wide">${h.name}</div>
+                        <div class="font-black text-white text-lg title-font tracking-wide">${h.name}</div>
                         <div class="text-xs text-gray-400">${h.desc}</div>
                     </div>
                     <div>
