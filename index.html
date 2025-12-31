@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Neon Survivor: Rebalanced</title>
+    <title>Neon Survivor: Ultimate</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
     
@@ -11,7 +11,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, onSnapshot, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
         const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
@@ -29,6 +29,7 @@
                     if (user) {
                         userId = user.uid;
                         window.firebaseReady = true;
+                        if(window.app && window.app.onAuth) window.app.onAuth(userId, db);
                     } else {
                         await signInAnonymously(auth);
                     }
@@ -36,35 +37,39 @@
             } catch (e) { console.error("FB Error", e); }
         };
 
-        window.firebaseObj = {
-            init: initFirebase,
-            db: () => db,
-            getUserId: () => userId
-        };
+        initFirebase();
     </script>
     
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700;900&display=swap');
         
         body {
-            font-family: 'Cairo', sans-serif;
+            font-family: 'Rajdhani', sans-serif;
             background-color: #000;
             overflow: hidden;
             touch-action: none;
             user-select: none;
             -webkit-user-select: none;
+            color: white;
         }
 
         #gameCanvas {
-            background: radial-gradient(circle at center, #0f172a 0%, #000000 100%);
-            filter: drop-shadow(0 0 10px rgba(0,0,0,0.5)); 
+            background: #050505;
+            /* Simple CSS Bloom for performance */
+            filter: contrast(1.2) brightness(1.1);
         }
 
+        /* Sci-Fi UI Styling */
         .glass-panel {
-            background: rgba(15, 23, 42, 0.9);
+            background: rgba(10, 10, 16, 0.85);
             backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.8), inset 0 0 10px rgba(255,255,255,0.05);
+            clip-path: polygon(
+                0 10px, 10px 0, 
+                100% 0, 100% calc(100% - 10px), 
+                calc(100% - 10px) 100%, 0 100%
+            );
         }
 
         .game-ui {
@@ -76,31 +81,36 @@
         .pointer-auto { pointer-events: auto; }
 
         .xp-rail {
-            position: absolute; top: 0; left: 0; width: 100%; height: 8px; background: #111; z-index: 30;
+            position: absolute; top: 0; left: 0; width: 100%; height: 6px; background: #111; z-index: 30;
         }
         .xp-fill {
-            height: 100%; background: linear-gradient(90deg, #22d3ee, #3b82f6);
-            width: 0%; transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            box-shadow: 0 0 15px #22d3ee;
+            height: 100%; background: linear-gradient(90deg, #6366f1, #a855f7);
+            width: 0%; transition: width 0.2s linear;
+            box-shadow: 0 0 15px #a855f7;
         }
 
-        @keyframes floatText {
-            0% { transform: translateY(0) scale(0.5); opacity: 0; }
-            20% { transform: translateY(-20px) scale(1.2); opacity: 1; }
-            100% { transform: translateY(-60px) scale(1); opacity: 0; }
+        @keyframes floatUp {
+            0% { transform: translateY(0) scale(0.8); opacity: 0; }
+            10% { transform: translateY(-20px) scale(1.5); opacity: 1; }
+            100% { transform: translateY(-80px) scale(1); opacity: 0; }
         }
         .dmg-text {
             position: absolute; font-weight: 900; pointer-events: none;
-            animation: floatText 0.8s ease-out forwards;
-            text-shadow: 0 0 5px black;
-            font-family: monospace;
+            animation: floatUp 0.8s ease-out forwards;
+            font-family: 'Courier New', monospace;
+            text-shadow: 2px 2px 0 #000;
+            z-index: 10;
         }
 
-        /* Pulse Animation for Critical UI */
-        @keyframes pulse-soft {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.7; }
+        .neon-text {
+            text-shadow: 0 0 10px currentColor, 0 0 20px currentColor;
         }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #000; }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #555; }
     </style>
 </head>
 <body>
@@ -109,131 +119,175 @@
     <div id="hud" class="hidden absolute inset-0 pointer-events-none z-10">
         <div class="xp-rail"><div id="xpBar" class="xp-fill"></div></div>
         
-        <!-- Stats -->
-        <div class="absolute top-6 left-4 flex flex-col gap-2">
-            <div class="glass-panel px-4 py-2 rounded-xl flex items-center gap-3 border-l-4 border-cyan-500">
-                <span class="text-xs text-gray-400 font-bold uppercase">المستوى</span>
-                <span id="lvlDisplay" class="text-white font-black text-2xl">1</span>
+        <!-- Pause Button -->
+        <button id="btnPauseGame" class="pointer-auto absolute top-4 left-1/2 -translate-x-1/2 bg-white/5 backdrop-blur border border-white/20 text-white rounded-full w-12 h-12 flex items-center justify-center hover:bg-white/20 transition-all z-50 text-xl shadow-[0_0_15px_rgba(255,255,255,0.2)]">
+            ⏸
+        </button>
+
+        <!-- Stats Top Left -->
+        <div class="absolute top-6 left-4 flex flex-col gap-3">
+            <div class="glass-panel px-5 py-2 flex items-center gap-3 border-l-4 border-indigo-500">
+                <span class="text-xs text-gray-400 font-bold uppercase tracking-widest">LEVEL</span>
+                <span id="lvlDisplay" class="text-white font-black text-4xl neon-text text-indigo-400">1</span>
             </div>
-            <div class="text-white font-mono text-xl pl-2 opacity-80" id="timeDisplay">00:00</div>
+            <div class="text-white font-mono text-xl pl-2 opacity-80 tracking-widest" id="timeDisplay">00:00</div>
         </div>
         
-        <div class="absolute top-6 right-4 flex flex-col items-end gap-2">
-            <div class="glass-panel px-4 py-1 rounded-full text-yellow-400 font-bold border border-yellow-500/20 flex items-center gap-2">
-                <span id="goldRunDisplay">0</span> 💎
+        <!-- Stats Top Right -->
+        <div class="absolute top-6 right-4 flex flex-col items-end gap-3">
+            <div class="glass-panel px-4 py-2 text-yellow-400 font-bold border-r-4 border-yellow-500 flex items-center gap-2">
+                <span id="goldRunDisplay">0</span> <span class="text-xl">💎</span>
             </div>
-            <div class="w-56 h-8 bg-gray-900 rounded-lg border border-gray-700 relative overflow-hidden">
-                <div id="hpBar" class="h-full bg-gradient-to-r from-green-600 to-emerald-400 transition-all duration-300" style="width: 100%"></div>
-                <div class="absolute inset-0 flex items-center justify-center text-xs font-bold text-white drop-shadow-md" id="hpText">100 / 100</div>
+            <!-- HP Bar -->
+            <div class="w-64 h-6 bg-gray-900/80 border border-gray-700 relative overflow-hidden skew-x-[-15deg]">
+                <div id="hpBar" class="h-full bg-gradient-to-r from-red-600 to-rose-500 transition-all duration-200 box-shadow-[0_0_10px_red]" style="width: 100%"></div>
             </div>
+            <div class="text-xs font-bold text-gray-400 tracking-widest" id="hpText">100 / 100</div>
         </div>
 
-        <!-- Dash Button -->
-        <div id="dashBtn" class="pointer-auto absolute bottom-12 right-8 w-24 h-24 rounded-full bg-blue-600/20 border-2 border-blue-400 flex items-center justify-center backdrop-blur active:scale-95 transition-transform shadow-[0_0_30px_rgba(59,130,246,0.3)]">
-            <span class="text-3xl">💨</span>
+        <!-- Dash Button (Mobile) -->
+        <div id="dashBtn" class="pointer-auto absolute bottom-12 right-8 w-24 h-24 rounded-full bg-blue-500/10 border border-blue-400/50 flex items-center justify-center backdrop-blur active:scale-95 transition-transform shadow-[0_0_30px_rgba(59,130,246,0.3)] group">
+            <span class="text-3xl group-hover:scale-110 transition-transform">⚡</span>
             <svg class="absolute w-full h-full -rotate-90 pointer-events-none">
-                <circle cx="48" cy="48" r="46" fill="none" stroke="#60a5fa" stroke-width="4" 
+                <circle cx="48" cy="48" r="46" fill="none" stroke="#60a5fa" stroke-width="2" 
                         stroke-dasharray="289" id="dashCircle" stroke-dashoffset="0" style="transition: stroke-dashoffset 0.1s linear"/>
             </svg>
         </div>
     </div>
 
+    <!-- Pause Screen -->
+    <div id="pauseScreen" class="game-ui hidden z-50 bg-black/60 backdrop-blur-sm pointer-auto">
+        <div class="glass-panel p-8 w-80 text-center flex flex-col gap-4 border-t-2 border-white/20">
+            <h2 class="text-5xl font-black text-white mb-2 tracking-widest neon-text text-white">PAUSED</h2>
+            <button id="btnResume" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-4 hover:tracking-widest transition-all clip-polygon">
+                RESUME MISSION
+            </button>
+            <button id="btnExit" class="bg-transparent border border-red-500/50 text-red-400 hover:bg-red-500/10 font-bold py-4 hover:text-white transition-all">
+                SAVE & EXIT
+            </button>
+        </div>
+    </div>
+
     <!-- Upgrade Screen -->
-    <div id="upgradeScreen" class="game-ui hidden z-50 bg-black/90 backdrop-blur-md pointer-auto">
-        <div class="flex flex-col items-center w-full max-w-md p-6 gap-6">
+    <div id="upgradeScreen" class="game-ui hidden z-50 bg-black/90 backdrop-blur-xl pointer-auto">
+        <div class="flex flex-col items-center w-full max-w-md p-6 gap-6 h-full justify-center">
             <div class="text-center">
-                <h2 class="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-amber-500 mb-2 neon-text">LEVEL UP!</h2>
-                <p class="text-gray-400">اختر جائزتك</p>
+                <h2 class="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-orange-500 mb-2 filter drop-shadow-[0_0_10px_orange]">LEVEL UP</h2>
+                <div class="h-1 w-32 bg-yellow-500 mx-auto rounded-full shadow-[0_0_10px_yellow]"></div>
             </div>
             <div id="upgradeCards" class="w-full flex flex-col gap-4"></div>
         </div>
     </div>
 
     <!-- Main Menu -->
-    <div id="mainMenu" class="game-ui z-40 bg-[#020204] pointer-auto flex-col overflow-y-auto">
-        <div class="w-full max-w-md p-6 flex flex-col items-center min-h-screen relative pt-16">
-            <h1 class="text-7xl font-black text-white mb-2 tracking-tighter relative z-10" style="text-shadow: 0 0 30px rgba(6,182,212,0.6);">
-                <span class="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-600">NEON</span>
-            </h1>
-            <h2 class="text-xl text-gray-500 mb-12 tracking-[0.5em] uppercase">Rebalanced</h2>
+    <div id="mainMenu" class="game-ui z-40 bg-black pointer-auto flex-col overflow-y-auto">
+        <!-- Animated Background Grid -->
+        <div class="absolute inset-0 z-0 opacity-20" style="background-image: linear-gradient(#333 1px, transparent 1px), linear-gradient(90deg, #333 1px, transparent 1px); background-size: 50px 50px; perspective: 100px;"></div>
+
+        <div class="w-full max-w-md p-6 flex flex-col items-center min-h-screen relative pt-16 z-10">
+            <!-- Title -->
+            <div class="relative mb-12 text-center group">
+                <h1 class="text-8xl font-black text-white tracking-tighter relative z-10 neon-text text-cyan-400" style="text-shadow: 0 0 50px rgba(6,182,212,0.8);">
+                    NEON
+                </h1>
+                <h2 class="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600 tracking-[0.5em] -mt-4">
+                    SURVIVOR
+                </h2>
+                <div class="text-xs text-gray-500 mt-4 font-mono">ULTIMATE EDITION</div>
+            </div>
             
-            <div class="glass-panel w-full p-5 rounded-2xl mb-8 flex justify-between items-center relative overflow-hidden group">
-                <div class="absolute top-0 left-0 w-1 h-full bg-yellow-500 transition-all group-hover:w-2"></div>
+            <!-- Gold Display -->
+            <div class="glass-panel w-full p-6 mb-8 flex justify-between items-center relative overflow-hidden group border-l-4 border-yellow-500">
+                <div class="absolute -right-10 -top-10 w-32 h-32 bg-yellow-500/10 rounded-full blur-3xl"></div>
                 <div>
-                    <div class="text-gray-400 text-xs uppercase mb-1">الرصيد المتاح</div>
-                    <div class="text-yellow-400 font-black text-4xl" id="totalGold">0</div>
+                    <div class="text-gray-400 text-[10px] uppercase font-bold tracking-wider mb-1">TOTAL CREDITS</div>
+                    <div class="text-yellow-400 font-black text-5xl global-gold-display drop-shadow-md">...</div>
                 </div>
-                <div class="text-5xl opacity-80 group-hover:scale-110 transition-transform">💎</div>
+                <div class="text-5xl opacity-80 group-hover:rotate-12 transition-transform filter drop-shadow-[0_0_10px_rgba(250,204,21,0.5)]">💎</div>
             </div>
 
-            <div class="w-full grid gap-4 z-10">
-                <button id="btnStart" class="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white font-black py-6 rounded-2xl text-2xl transition-all active:scale-95 shadow-[0_0_20px_rgba(6,182,212,0.3)] border border-white/10">
-                    ابدأ القتال
+            <!-- Buttons -->
+            <div class="w-full grid gap-4">
+                <button id="btnResumeRun" class="hidden bg-emerald-900/80 hover:bg-emerald-800 text-emerald-100 border border-emerald-500/30 font-black py-5 text-xl tracking-widest uppercase flex items-center justify-center gap-3 shadow-[0_0_20px_rgba(16,185,129,0.2)]">
+                    <span class="animate-spin">↻</span> Resume Run
                 </button>
+
+                <button id="btnStart" class="bg-gradient-to-r from-blue-700 to-indigo-700 hover:from-blue-600 hover:to-indigo-600 text-white font-black py-6 text-2xl tracking-wider uppercase transition-all shadow-[0_0_30px_rgba(67,56,202,0.4)] hover:shadow-[0_0_50px_rgba(67,56,202,0.6)] border border-white/10 relative overflow-hidden">
+                    <span class="relative z-10">Deploy Mission</span>
+                    <div class="absolute inset-0 bg-white/10 translate-y-full hover:translate-y-0 transition-transform"></div>
+                </button>
+
                 <div class="grid grid-cols-2 gap-4">
-                    <button id="btnShop" class="glass-panel hover:bg-white/5 text-white font-bold py-5 rounded-2xl active:scale-95 transition-all flex flex-col items-center gap-2 border border-gray-700">
-                        <span class="text-3xl">🧬</span>
-                        <span>المختبر</span>
+                    <button id="btnShop" class="glass-panel hover:bg-white/5 text-white font-bold py-6 transition-all flex flex-col items-center gap-2 border-t-2 border-transparent hover:border-blue-500">
+                        <span class="text-4xl mb-1">🧬</span>
+                        <span class="text-xs tracking-widest uppercase">Research</span>
                     </button>
-                    <button id="btnHeroes" class="glass-panel hover:bg-white/5 text-white font-bold py-5 rounded-2xl active:scale-95 transition-all flex flex-col items-center gap-2 border border-gray-700">
-                        <span class="text-3xl">🦸</span>
-                        <span>العملاء</span>
+                    <button id="btnHeroes" class="glass-panel hover:bg-white/5 text-white font-bold py-6 transition-all flex flex-col items-center gap-2 border-t-2 border-transparent hover:border-pink-500">
+                        <span class="text-4xl mb-1">👺</span>
+                        <span class="text-xs tracking-widest uppercase">Agents</span>
                     </button>
                 </div>
             </div>
             
-            <button onclick="app.resetSave()" class="mt-12 text-xs text-red-900 hover:text-red-500 transition-colors">إعادة ضبط التقدم</button>
-        </div>
-    </div>
-
-    <!-- Shop -->
-    <div id="shopScreen" class="game-ui hidden z-50 bg-[#050508] pointer-auto flex-col">
-        <div class="w-full max-w-md p-4 h-full flex flex-col">
-            <div class="flex justify-between items-center mb-6 py-4 border-b border-gray-800 sticky top-0 bg-[#050508] z-10">
-                <h2 class="text-2xl font-bold text-white flex items-center gap-2"><span class="text-blue-500">🧬</span> المختبر</h2>
-                <div class="text-yellow-400 font-bold bg-gray-900 px-4 py-2 rounded-xl border border-gray-700" id="shopGoldDisplay">0</div>
+            <div class="mt-auto pb-4 pt-12 opacity-30 hover:opacity-100 transition-opacity">
+                <button onclick="app.resetSave()" class="text-[10px] text-red-500 uppercase tracking-widest border-b border-red-500/30 pb-1">Reset Protocol</button>
             </div>
-            <div id="shopItems" class="space-y-3 overflow-y-auto flex-1 pb-24 pr-2"></div>
-            <button id="btnBackFromShop" class="absolute bottom-6 left-1/2 -translate-x-1/2 w-[90%] bg-red-600 text-white font-bold py-4 rounded-xl shadow-lg hover:bg-red-700 transition-all">عودة</button>
         </div>
     </div>
 
-    <!-- Hero Select -->
-    <div id="heroScreen" class="game-ui hidden z-50 bg-[#050508] pointer-auto flex-col">
+    <!-- Shop Screen -->
+    <div id="shopScreen" class="game-ui hidden z-50 bg-[#050505] pointer-auto flex-col">
+        <div class="w-full max-w-md p-4 h-full flex flex-col">
+            <div class="flex justify-between items-center mb-6 py-4 border-b border-gray-800 sticky top-0 bg-[#050505] z-20">
+                <h2 class="text-3xl font-bold text-white uppercase tracking-wider"><span class="text-blue-500">🧬</span> Lab</h2>
+                <div class="text-yellow-400 font-bold bg-gray-900 px-4 py-2 border border-gray-800 global-gold-display">0</div>
+            </div>
+            <div id="shopItems" class="space-y-4 overflow-y-auto flex-1 pb-32 pr-2 scrollbar-hide"></div>
+            <div class="absolute bottom-6 left-1/2 -translate-x-1/2 w-[90%]">
+                <button id="btnBackFromShop" class="w-full bg-gray-800 text-white font-bold py-4 uppercase tracking-widest hover:bg-gray-700 transition-all border border-gray-600">Back</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hero Screen -->
+    <div id="heroScreen" class="game-ui hidden z-50 bg-[#050505] pointer-auto flex-col">
         <div class="w-full max-w-md p-6 h-full flex flex-col">
-            <h2 class="text-3xl font-bold text-white mb-6 border-b border-gray-800 pb-4">اختر العميل</h2>
-            <div id="heroGrid" class="grid grid-cols-1 gap-4 overflow-y-auto flex-1 pb-24 pr-1"></div>
-            <button id="btnBackFromHero" class="absolute bottom-6 left-1/2 -translate-x-1/2 w-[90%] bg-red-600 text-white font-bold py-4 rounded-xl shadow-lg hover:bg-red-700 transition-all">عودة</button>
+            <h2 class="text-3xl font-bold text-white mb-6 border-b border-gray-800 pb-4 sticky top-0 bg-[#050505] z-20 uppercase tracking-wider">Agents</h2>
+            <div id="heroGrid" class="grid grid-cols-1 gap-4 overflow-y-auto flex-1 pb-32 pr-1"></div>
+            <div class="absolute bottom-6 left-1/2 -translate-x-1/2 w-[90%]">
+                <button id="btnBackFromHero" class="w-full bg-gray-800 text-white font-bold py-4 uppercase tracking-widest hover:bg-gray-700 transition-all border border-gray-600">Back</button>
+            </div>
         </div>
     </div>
 
     <!-- Game Over -->
     <div id="gameOverScreen" class="game-ui hidden z-50 bg-black/95 pointer-auto flex-col">
-        <h2 class="text-7xl font-black text-white mb-2 neon-text text-center">انتهت<br><span class="text-red-600">المهمة</span></h2>
+        <h2 class="text-7xl font-black text-white mb-2 tracking-tighter neon-text text-red-600">KIA</h2>
+        <p class="text-red-600 font-mono tracking-[0.5em] text-sm mb-12">MISSION TERMINATED</p>
         
-        <div class="glass-panel p-8 rounded-3xl w-80 text-center mb-8 border-t-4 border-red-600 mt-8">
+        <div class="glass-panel p-8 w-80 text-center mb-8 border-t-4 border-red-600 shadow-[0_0_50px_rgba(220,38,38,0.2)]">
             <div class="grid grid-cols-2 gap-8 mb-6 border-b border-white/10 pb-6">
                 <div>
-                    <div class="text-xs text-gray-500 uppercase tracking-widest mb-1">صمدت لمدة</div>
-                    <div class="text-white text-2xl font-mono font-bold" id="endStatsTime">00:00</div>
+                    <div class="text-[10px] text-gray-500 uppercase tracking-widest mb-1">Time</div>
+                    <div class="text-white text-3xl font-mono font-bold" id="endStatsTime">00:00</div>
                 </div>
                 <div>
-                    <div class="text-xs text-gray-500 uppercase tracking-widest mb-1">الضحايا</div>
-                    <div class="text-white text-2xl font-mono font-bold" id="endStatsKills">0</div>
+                    <div class="text-[10px] text-gray-500 uppercase tracking-widest mb-1">Kills</div>
+                    <div class="text-white text-3xl font-mono font-bold" id="endStatsKills">0</div>
                 </div>
             </div>
             <div>
-                <div class="text-xs text-gray-500 uppercase mb-2">الغنائم</div>
-                <div class="text-yellow-400 text-5xl font-black flex justify-center items-center gap-2">
-                    <span id="endStatsGold">0</span> <span class="text-2xl">💎</span>
+                <div class="text-[10px] text-gray-500 uppercase mb-2">Loot Secured</div>
+                <div class="text-yellow-400 text-6xl font-black flex justify-center items-center gap-3 filter drop-shadow-[0_0_10px_yellow]">
+                    <span id="endStatsGold">0</span> <span class="text-3xl">💎</span>
                 </div>
             </div>
         </div>
 
-        <button id="btnRetry" class="bg-white text-black font-black py-4 px-16 rounded-full hover:scale-105 transition-transform shadow-[0_0_30px_rgba(255,255,255,0.3)] text-lg mb-4">
-            جولة أخرى
+        <button id="btnRetry" class="bg-white text-black font-black py-4 px-16 hover:scale-105 transition-transform shadow-[0_0_30px_rgba(255,255,255,0.5)] text-xl mb-4 uppercase tracking-wider">
+            Re-Deploy
         </button>
-        <button id="btnHome" class="text-gray-500 hover:text-white transition-colors text-sm underline">القائمة الرئيسية</button>
+        <button id="btnHome" class="text-gray-500 hover:text-white transition-colors text-xs tracking-widest uppercase mt-4">Return to Base</button>
     </div>
 
     <canvas id="gameCanvas"></canvas>
@@ -241,43 +295,42 @@
     <script type="module">
         import { doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // --- البيانات: الأبطال والترقيات ---
-        // تم تحسين الأبطال ليكونوا أقوى في البداية
+        // --- Game Data (English) ---
         const HEROES = [
-            { id: 'soldier', name: 'الجندي', desc: 'متوازن. سلاح رشاش.', cost: 0, hp: 150, speed: 3.5, img: '🔫', color: '#3b82f6', weapon: 'gun' },
-            { id: 'tank', name: 'المدرعة', desc: 'صحة هائلة. يضرب بمطرقة.', cost: 1000, hp: 300, speed: 2.8, img: '🛡️', color: '#10b981', weapon: 'orbit' },
-            { id: 'ninja', name: 'النينجا', desc: 'سريع جداً. يرمي نجوم.', cost: 2500, hp: 100, speed: 5, img: '🥷', color: '#f43f5e', weapon: 'shuriken' },
-            { id: 'mage', name: 'الساحر', desc: 'يتحكم بالبرق.', cost: 5000, hp: 120, speed: 3.2, img: '⚡', color: '#8b5cf6', weapon: 'lightning' }
+            { id: 'soldier', name: 'COMMANDER', desc: 'Balanced. Heavy Rifle.', cost: 0, hp: 150, speed: 3.5, img: '👮', color: '#3b82f6', weapon: 'gun' },
+            { id: 'tank', name: 'TITAN', desc: 'High HP. Area Damage.', cost: 2500, hp: 300, speed: 2.5, img: '🦾', color: '#10b981', weapon: 'orbit' },
+            { id: 'ninja', name: 'SPECTRE', desc: 'Fast. Critical Strikes.', cost: 5000, hp: 100, speed: 5.0, img: '🥷', color: '#f43f5e', weapon: 'shuriken' },
+            { id: 'mage', name: 'VOLT', desc: 'Chain Lightning.', cost: 8000, hp: 120, speed: 3.2, img: '⛈️', color: '#8b5cf6', weapon: 'lightning' }
         ];
 
-        // تم تخفيض أسعار الترقيات الدائمة بنسبة كبيرة
         const PERM_UPGRADES = {
-            damage: { name: 'قوة النيران', desc: 'زيادة الضرر +10%', max: 20, cost: l => (l+1)*50, val: l => l * 0.1 }, 
-            health: { name: 'تدريع البدن', desc: 'زيادة الصحة +20', max: 20, cost: l => (l+1)*50, val: l => l * 20 }, 
-            speed:  { name: 'سرعة الحركة', desc: 'زيادة السرعة +5%', max: 10, cost: l => (l+1)*80, val: l => l * 0.05 },
-            regen:  { name: 'استشفاء', desc: 'صحة/ثانية +0.5', max: 10, cost: l => (l+1)*100, val: l => l * 0.5 },
-            magnet: { name: 'مجال الجذب', desc: 'مدى جمع الجواهر +20', max: 10, cost: l => (l+1)*100, val: l => l * 20 },
-            greed:  { name: 'خوارزمية الجمع', desc: 'زيادة الذهب المكتسب +10%', max: 10, cost: l => (l+1)*100, val: l => l * 0.1 } 
+            damage: { name: 'Kinetic Boost', desc: 'Damage +10%', max: 50, cost: l => 100 + (l * 150), val: l => l * 0.1 }, 
+            health: { name: 'Nano Armor', desc: 'Health +20', max: 50, cost: l => 100 + (l * 150), val: l => l * 20 }, 
+            speed:  { name: 'Thrusters', desc: 'Speed +3% (Max 50%)', max: 15, cost: l => 200 + (l * 200), val: l => l * 0.03 },
+            regen:  { name: 'Bio-Repair', desc: 'HP/Sec +0.5', max: 20, cost: l => 300 + (l * 250), val: l => l * 0.5 },
+            magnet: { name: 'Loot Range', desc: 'Range +15%', max: 15, cost: l => 150 + (l * 150), val: l => l * 0.15 },
+            greed:  { name: 'Crypto Miner', desc: 'Gold Gain +10%', max: 20, cost: l => 250 + (l * 250), val: l => l * 0.1 } 
         };
 
         const INGAME_UPGRADES = [
-            { id: 'multishot', name: 'تعدد القذائف', desc: 'إطلاق +1 رصاصة', rarity: 'rare', color: '#60a5fa' },
-            { id: 'dmg', name: 'رصاص يورانيوم', desc: 'ضرر +25%', rarity: 'common', color: '#f87171' },
-            { id: 'haste', name: 'تلقيم سريع', desc: 'سرعة الإطلاق +20%', rarity: 'common', color: '#fbbf24' },
-            { id: 'speed', name: 'محركات دفع', desc: 'سرعة الحركة +15%', rarity: 'common', color: '#34d399' },
-            { id: 'orbit', name: 'درع مداري', desc: 'يضيف 2 كرة طاقة', rarity: 'epic', color: '#c084fc' }, // Buffed: +2 balls
-            { id: 'lightning', name: 'مولد تسلا', desc: 'يصعق الأعداء', rarity: 'epic', color: '#facc15' },
-            { id: 'heal', name: 'حقيبة إسعاف', desc: 'استعادة 40% صحة', rarity: 'rare', color: '#f472b6' }
+            { id: 'multishot', name: 'Split Barrel', desc: '+1 Projectile', rarity: 'rare', color: '#60a5fa' },
+            { id: 'dmg', name: 'Hollow Point', desc: 'Damage +20%', rarity: 'common', color: '#f87171' },
+            { id: 'haste', name: 'Rapid Fire', desc: 'Fire Rate +15%', rarity: 'common', color: '#fbbf24' },
+            { id: 'speed', name: 'Adrenaline', desc: 'Move Speed +10%', rarity: 'common', color: '#34d399' },
+            { id: 'orbit', name: 'Plasma Orb', desc: '+1 Protective Orb', rarity: 'epic', color: '#c084fc' },
+            { id: 'lightning', name: 'Tesla Coil', desc: 'Zaps nearby enemies', rarity: 'epic', color: '#facc15' },
+            { id: 'heal', name: 'Stimpack', desc: 'Heal 50% HP', rarity: 'rare', color: '#f472b6' },
+            { id: 'crit', name: 'Targeting Sys', desc: 'Crit Chance +10%', rarity: 'rare', color: '#e879f9' }
         ];
 
-        // --- المحرك الأساسي ---
+        // --- Engine & State ---
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
         let W, H;
 
         let Game = {
-            state: 'MENU',
+            state: 'MENU', 
             data: {
                 gold: 0,
                 unlockedHeroes: ['soldier'],
@@ -290,20 +343,13 @@
             gems: [],
             particles: [],
             texts: [],
-            
-            time: 0,
-            level: 1,
-            xp: 0,
-            xpNext: 50,
-            kills: 0,
-            runGold: 0,
-            
-            spawner: { next: 0, wave: 1 },
+            time: 0, level: 1, xp: 0, xpNext: 100, kills: 0, runGold: 0,
+            spawner: { next: 0 },
             camera: { x: 0, y: 0, shake: 0 },
             input: { active: false, x: 0, y: 0, px: 0, py: 0 }
         };
 
-        // --- نظام الصوت ---
+        // --- Sound ---
         let AudioSys = {
             synth: null,
             init: async () => {
@@ -316,59 +362,107 @@
             },
             play: (type) => {
                 if(!AudioSys.synth) return;
-                if(type === 'shoot') AudioSys.synth.triggerAttackRelease("C5", "64n", undefined, 0.03);
-                if(type === 'hit') AudioSys.synth.triggerAttackRelease("G2", "32n", undefined, 0.1);
-                if(type === 'coin') AudioSys.synth.triggerAttackRelease("E6", "32n", undefined, 0.05);
-                if(type === 'levelup') AudioSys.synth.triggerAttackRelease(["C4","E4","G4","C5"], "8n");
-                if(type === 'explode') AudioSys.bass.triggerAttackRelease("C1", "8n");
-                if(type === 'dash') AudioSys.bass.triggerAttackRelease("F2", "16n");
+                try {
+                    if(type === 'shoot') AudioSys.synth.triggerAttackRelease("C5", "64n", undefined, 0.05);
+                    if(type === 'hit') AudioSys.synth.triggerAttackRelease("F2", "32n", undefined, 0.1);
+                    if(type === 'coin') AudioSys.synth.triggerAttackRelease("B5", "32n", undefined, 0.05);
+                    if(type === 'levelup') AudioSys.synth.triggerAttackRelease(["C4","E4","G4","C5"], "8n");
+                    if(type === 'explode') AudioSys.bass.triggerAttackRelease("C1", "16n");
+                    if(type === 'dash') AudioSys.bass.triggerAttackRelease("G2", "16n");
+                } catch(e) {}
             }
         };
 
-        // --- الحفظ والتحميل ---
-        function saveGame() {
+        // --- Sync & Persistence ---
+        function updateGlobalUI() {
+            document.querySelectorAll('.global-gold-display').forEach(el => {
+                el.innerText = Game.data.gold.toLocaleString();
+            });
+        }
+
+        function saveProfile() {
+            const dataToSave = { 
+                gold: Game.data.gold, 
+                unlockedHeroes: Game.data.unlockedHeroes, 
+                upgrades: Game.data.upgrades, 
+                selectedHero: Game.data.selectedHero 
+            };
+            updateGlobalUI();
             if (window.firebaseObj && window.firebaseObj.getUserId()) {
-                const ref = doc(window.firebaseObj.db(), `artifacts/${appId}/users/${window.firebaseObj.getUserId()}/data/neon_balanced`);
-                setDoc(ref, Game.data, { merge: true });
+                const ref = doc(window.firebaseObj.db(), `artifacts/${appId}/users/${window.firebaseObj.getUserId()}/data/neon_profile`);
+                setDoc(ref, dataToSave, { merge: true });
             } else {
-                localStorage.setItem('neon_balanced_save', JSON.stringify(Game.data));
+                localStorage.setItem('neon_ult_profile', JSON.stringify(dataToSave));
             }
         }
 
-        function loadGame() {
-            const local = JSON.parse(localStorage.getItem('neon_balanced_save') || 'null');
-            if(local) Game.data = { ...Game.data, ...local };
-            // Ensure upgrades object has all keys
-            Object.keys(PERM_UPGRADES).forEach(k => {
-                if(typeof Game.data.upgrades[k] === 'undefined') Game.data.upgrades[k] = 0;
-            });
-            updateMenuUI();
+        function saveCurrentRun() {
+            if(Game.state !== 'GAME' && Game.state !== 'PAUSED') return;
+            if(Game.player.hp <= 0) return;
 
-            window.firebaseObj.init().then(() => {
-                setTimeout(() => {
-                    if (!window.firebaseObj.getUserId()) return;
-                    const ref = doc(window.firebaseObj.db(), `artifacts/${appId}/users/${window.firebaseObj.getUserId()}/data/neon_balanced`);
-                    onSnapshot(ref, (snap) => {
-                        if (snap.exists()) {
-                            const d = snap.data();
-                            Game.data = { ...Game.data, ...d };
-                            // Ensure upgrades object has all keys on load
-                            Object.keys(PERM_UPGRADES).forEach(k => {
-                                if(typeof Game.data.upgrades[k] === 'undefined') Game.data.upgrades[k] = 0;
-                            });
-                            updateMenuUI();
-                        }
-                    });
-                }, 1000);
-            });
+            const runData = {
+                player: {
+                    x: Game.player.x, y: Game.player.y, hp: Game.player.hp, maxHp: Game.player.maxHp,
+                    speed: Game.player.speed, weapon: Game.player.weapon, passives: Game.player.passives,
+                    magnet: Game.player.magnet, color: Game.player.color, dashCd: Game.player.dashCd,
+                    invincible: Game.player.invincible || 0 
+                },
+                time: Game.time, level: Game.level, xp: Game.xp, xpNext: Game.xpNext,
+                kills: Game.kills, runGold: Game.runGold, heroId: Game.data.selectedHero
+            };
+            localStorage.setItem('neon_ult_run', JSON.stringify(runData));
         }
 
-        // --- التهيئة والمدخلات ---
+        function clearSavedRun() {
+            localStorage.removeItem('neon_ult_run');
+            updateResumeButton();
+        }
+
+        window.app = {
+            onAuth: (uid, db) => {
+                const ref = doc(db, `artifacts/${appId}/users/${uid}/data/neon_profile`);
+                onSnapshot(ref, (snap) => {
+                    if (snap.exists()) {
+                        Game.data = { ...Game.data, ...snap.data() };
+                        if(!Game.data.upgrades) Game.data.upgrades = {};
+                        updateGlobalUI();
+                    }
+                });
+            },
+            resetSave: () => {
+                if(confirm('Warning: Factory Reset? All data will be wiped.')) {
+                    localStorage.clear();
+                    location.reload();
+                }
+            }
+        };
+
+        const local = JSON.parse(localStorage.getItem('neon_ult_profile') || 'null');
+        if(local) {
+            Game.data = { ...Game.data, ...local };
+            if(!Game.data.upgrades) Game.data.upgrades = {};
+            updateGlobalUI();
+        }
+
+        function updateResumeButton() {
+            const hasRun = localStorage.getItem('neon_ult_run');
+            const btn = document.getElementById('btnResumeRun');
+            if(hasRun) btn.classList.remove('hidden');
+            else btn.classList.add('hidden');
+        }
+
+        // --- Core Loop ---
         function init() {
             resize();
             window.addEventListener('resize', resize);
-            loadGame();
-            
+            updateResumeButton();
+            updateGlobalUI();
+
+            document.addEventListener('visibilitychange', () => {
+                if (document.hidden && Game.state === 'GAME') togglePause();
+            });
+
+            // Input
             const handleStart = (e) => {
                 if(Game.state !== 'GAME') return;
                 Game.input.active = true;
@@ -381,7 +475,7 @@
                 const p = e.touches ? e.touches[0] : e;
                 const dx = p.clientX - Game.input.px;
                 const dy = p.clientY - Game.input.py;
-                const dist = Math.min(60, Math.sqrt(dx*dx + dy*dy));
+                const dist = Math.min(80, Math.sqrt(dx*dx + dy*dy));
                 const angle = Math.atan2(dy, dx);
                 Game.input.x = Math.cos(angle) * dist;
                 Game.input.y = Math.sin(angle) * dist;
@@ -395,13 +489,17 @@
             canvas.addEventListener('touchmove', handleMove);
             window.addEventListener('touchend', handleEnd);
 
-            document.getElementById('btnStart').onclick = startGame;
+            document.getElementById('btnStart').onclick = () => startGame(false);
+            document.getElementById('btnResumeRun').onclick = () => startGame(true);
             document.getElementById('dashBtn').onclick = playerDash;
             document.getElementById('btnShop').onclick = () => { setScreen('SHOP'); renderShop(); };
             document.getElementById('btnHeroes').onclick = () => { setScreen('HEROES'); renderHeroes(); };
+            document.getElementById('btnPauseGame').onclick = togglePause;
+            document.getElementById('btnResume').onclick = togglePause;
+            document.getElementById('btnExit').onclick = () => { saveCurrentRun(); setScreen('MENU'); updateResumeButton(); };
             document.getElementById('btnBackFromShop').onclick = () => setScreen('MENU');
             document.getElementById('btnBackFromHero').onclick = () => setScreen('MENU');
-            document.getElementById('btnRetry').onclick = startGame;
+            document.getElementById('btnRetry').onclick = () => startGame(false);
             document.getElementById('btnHome').onclick = () => setScreen('MENU');
 
             requestAnimationFrame(loop);
@@ -414,66 +512,86 @@
 
             if(screen === 'MENU') document.getElementById('mainMenu').classList.remove('hidden');
             if(screen === 'GAME') document.getElementById('hud').classList.remove('hidden');
+            if(screen === 'PAUSED') {
+                document.getElementById('hud').classList.remove('hidden');
+                document.getElementById('pauseScreen').classList.remove('hidden');
+            }
             if(screen === 'SHOP') document.getElementById('shopScreen').classList.remove('hidden');
             if(screen === 'HEROES') document.getElementById('heroScreen').classList.remove('hidden');
             if(screen === 'GAMEOVER') document.getElementById('gameOverScreen').classList.remove('hidden');
             if(screen === 'LEVELUP') document.getElementById('upgradeScreen').classList.remove('hidden');
         }
 
-        function startGame() {
-            const hero = HEROES.find(h => h.id === Game.data.selectedHero);
-            const ups = Game.data.upgrades;
-
-            const maxHp = hero.hp + PERM_UPGRADES.health.val(ups.health || 0);
-            const speed = hero.speed * (1 + PERM_UPGRADES.speed.val(ups.speed || 0));
-            const dmgMult = 1 + PERM_UPGRADES.damage.val(ups.damage || 0);
-            const regen = PERM_UPGRADES.regen.val(ups.regen || 0);
-            const magnetBonus = PERM_UPGRADES.magnet.val(ups.magnet || 0);
-
-            // توازن البداية: اللاعب قوي
-            Game.player = {
-                x: 0, y: 0,
-                hp: maxHp, maxHp: maxHp,
-                speed: speed,
-                invincible: 60,
-                dashCd: 0,
-                weapon: { 
-                    type: hero.weapon, 
-                    dmg: 20 * dmgMult, // ضرر ابتدائي عالي
-                    rate: 25, 
-                    count: 1, 
-                    lastShot: 0 
-                },
-                // بداية بمدى مغناطيس واسع
-                magnet: 120 + magnetBonus,
-                passives: { orbit: 0, lightning: 0, regen: regen },
-                color: hero.color,
-                trail: []
-            };
-
-            Game.time = 0; Game.level = 1; Game.xp = 0; Game.xpNext = 50;
-            Game.runGold = 0; Game.kills = 0;
-            Game.enemies = []; Game.bullets = []; Game.gems = []; Game.particles = []; Game.texts = [];
-            Game.spawner = { next: 0, wave: 1 };
-
-            setScreen('GAME');
-            AudioSys.init();
+        function togglePause() {
+            if(Game.state === 'GAME') {
+                setScreen('PAUSED');
+                saveCurrentRun();
+            } else if(Game.state === 'PAUSED') {
+                setScreen('GAME');
+            }
         }
 
-        function loop(ts) {
+        function startGame(isResume) {
+            let savedRun = null;
+            if(isResume) {
+                try { savedRun = JSON.parse(localStorage.getItem('neon_ult_run')); } catch(e){}
+            }
+
+            if(isResume && savedRun) {
+                Game.player = { ...savedRun.player, trail: [] };
+                if (typeof Game.player.invincible !== 'number') Game.player.invincible = 0;
+                Game.time = savedRun.time; Game.level = savedRun.level; Game.xp = savedRun.xp;
+                Game.xpNext = savedRun.xpNext; Game.kills = savedRun.kills; Game.runGold = savedRun.runGold;
+                Game.data.selectedHero = savedRun.heroId;
+            } else {
+                const hero = HEROES.find(h => h.id === Game.data.selectedHero);
+                const ups = Game.data.upgrades;
+
+                const maxHp = hero.hp + PERM_UPGRADES.health.val(ups.health || 0);
+                const speed = hero.speed * (1 + PERM_UPGRADES.speed.val(ups.speed || 0));
+                const dmgMult = 1 + PERM_UPGRADES.damage.val(ups.damage || 0);
+                const regen = PERM_UPGRADES.regen.val(ups.regen || 0);
+                const magnetBonus = PERM_UPGRADES.magnet.val(ups.magnet || 0);
+
+                Game.player = {
+                    x: 0, y: 0,
+                    hp: maxHp, maxHp: maxHp,
+                    speed: speed,
+                    invincible: 60,
+                    dashCd: 0,
+                    weapon: { 
+                        type: hero.weapon, 
+                        dmg: 12 * dmgMult, rate: 30, count: 1, lastShot: 0, critChance: 0.05
+                    },
+                    magnet: 100 * (1 + magnetBonus),
+                    passives: { orbit: 0, lightning: 0, regen: regen },
+                    color: hero.color,
+                    trail: []
+                };
+                Game.time = 0; Game.level = 1; Game.xp = 0; Game.xpNext = 100;
+                Game.runGold = 0; Game.kills = 0;
+            }
+
+            Game.enemies = []; Game.bullets = []; Game.gems = []; Game.particles = []; Game.texts = [];
+            Game.spawner = { next: Game.time };
+            
+            setScreen('GAME');
+            AudioSys.init();
+            clearSavedRun(); 
+        }
+
+        function loop() {
             requestAnimationFrame(loop);
             if(Game.state !== 'GAME') return;
-
-            const dt = 1/60;
-            Game.time += dt;
+            const dt = 1/60; Game.time += dt;
 
             updatePlayer();
             updateWeapons();
-            updateEnemies();
+            updateEnemies(); 
             updatePhysics();
             render();
             
-            if(Math.floor(Game.time * 10) % 6 === 0) updateHUD();
+            if(Math.floor(Game.time * 60) % 10 === 0) updateHUD();
         }
 
         function updatePlayer() {
@@ -481,17 +599,15 @@
             if(Game.input.active || Game.input.x !== 0) {
                 const len = Math.sqrt(Game.input.x**2 + Game.input.y**2);
                 if(len > 0) {
-                    p.x += (Game.input.x / len) * p.speed;
-                    p.y += (Game.input.y / len) * p.speed;
+                    const factor = len / 80;
+                    p.x += (Game.input.x / len) * p.speed * factor;
+                    p.y += (Game.input.y / len) * p.speed * factor;
                 }
             }
             if(p.dashCd > 0) p.dashCd--;
             if(p.invincible > 0) p.invincible--;
             
-            // استشفاء
-            if(p.passives.regen > 0 && Game.time % 60 < 1) {
-                p.hp = Math.min(p.maxHp, p.hp + p.passives.regen * (1/60)); // Fixed calculation
-            }
+            if(p.passives.regen > 0 && Game.time % 1 < 0.02) p.hp = Math.min(p.maxHp, p.hp + p.passives.regen);
 
             if(Game.time % 0.1 < 0.02) p.trail.push({x: p.x, y: p.y, life: 1});
             for(let i=p.trail.length-1; i>=0; i--) {
@@ -499,29 +615,29 @@
                 if(p.trail[i].life <= 0) p.trail.splice(i,1);
             }
 
-            const dashPct = Math.max(0, p.dashCd / 60) * 100;
-            document.getElementById('dashCircle').style.strokeDashoffset = (289 * dashPct) / 100;
+            const dashPct = Math.max(0, p.dashCd / 90) * 100;
+            const dashC = document.getElementById('dashCircle');
+            if(dashC) dashC.style.strokeDashoffset = (289 * dashPct) / 100;
         }
 
         function playerDash() {
             const p = Game.player;
             if(p.dashCd > 0) return;
-            p.dashCd = 60; p.invincible = 30;
+            p.dashCd = 90; p.invincible = 45; 
             const angle = Math.atan2(Game.input.y, Game.input.x) || 0;
-            const dashDist = 150;
-            p.x += Math.cos(angle) * dashDist;
-            p.y += Math.sin(angle) * dashDist;
-            spawnParticles(p.x, p.y, '#fff', 20);
+            p.x += Math.cos(angle) * 180;
+            p.y += Math.sin(angle) * 180;
+            spawnExplosion(p.x, p.y, '#fff', 15, false); // Dash Effect
             AudioSys.play('dash');
-            Game.camera.shake = 5;
+            Game.camera.shake = 8;
         }
 
         function updateWeapons() {
             const p = Game.player;
+            p.weapon.lastShot--;
             
-            // السلاح
             if(p.weapon.lastShot <= 0) {
-                let target = null, minDist = 500; // مدى واسع
+                let target = null, minDist = 600; 
                 for(let e of Game.enemies) {
                     const d = Math.hypot(e.x - p.x, e.y - p.y);
                     if(d < minDist) { minDist = d; target = e; }
@@ -530,11 +646,11 @@
                 if(target || p.weapon.type === 'shuriken') {
                     const angle = target ? Math.atan2(target.y - p.y, target.x - p.x) : Math.random()*Math.PI*2;
                     for(let i=0; i<p.weapon.count; i++) {
-                        const spread = (i - (p.weapon.count-1)/2) * 0.2;
+                        const spread = (i - (p.weapon.count-1)/2) * 0.15;
                         Game.bullets.push({ 
                             x: p.x, y: p.y, 
                             vx: Math.cos(angle+spread)*12, vy: Math.sin(angle+spread)*12, 
-                            life: 70, // رصاص يعيش أطول
+                            life: 60, 
                             color: p.weapon.type === 'lightning' ? '#facc15' : '#00f3ff'
                         });
                     }
@@ -542,60 +658,53 @@
                     p.weapon.lastShot = p.weapon.rate;
                 }
             }
-            p.weapon.lastShot--;
 
-            // المداري (Orbit) - تحسين: 2 كرة لكل مستوى + مدى أوسع
             if(p.passives.orbit > 0) {
                 const spd = Game.time * 3;
-                const count = p.passives.orbit * 2; // ضعف العدد
+                const count = p.passives.orbit * 2; 
                 for(let i=0; i<count; i++) {
                     const a = spd + (i * (Math.PI*2/count));
-                    const ox = p.x + Math.cos(a)*110, oy = p.y + Math.sin(a)*110; // مدى 110
+                    const ox = p.x + Math.cos(a)*120, oy = p.y + Math.sin(a)*120; 
                     for(let e of Game.enemies) {
-                        if(Math.hypot(e.x-ox, e.y-oy) < e.size + 20) damageEnemy(e, p.weapon.dmg * 0.5, false);
+                        if(Math.hypot(e.x-ox, e.y-oy) < e.size + 25) damageEnemy(e, p.weapon.dmg * 0.4, false);
                     }
                 }
             }
 
-            // البرق
-            if(p.passives.lightning > 0 && Math.random() < 0.03 * p.passives.lightning) {
-                if(Game.enemies.length) {
-                    const e = Game.enemies[Math.floor(Math.random()*Game.enemies.length)];
-                    Game.particles.push({type:'line', x1:p.x, y1:p.y, x2:e.x, y2:e.y, life:5, color:'#facc15'});
-                    damageEnemy(e, p.weapon.dmg * 3, true);
+            if(p.passives.lightning > 0 && Math.random() < 0.05) { 
+                const e = Game.enemies[Math.floor(Math.random()*Game.enemies.length)];
+                if(e) {
+                    Game.particles.push({type:'lightning', x1:p.x, y1:p.y, x2:e.x, y2:e.y, life:10, color:'#facc15'});
+                    damageEnemy(e, p.weapon.dmg * (1 + p.passives.lightning * 0.5), true);
                 }
             }
         }
 
         function updateEnemies() {
-            // نظام الصعوبة التدريجي (Infinite Scaling)
-            const difficulty = 1 + (Game.time / 180); // الصعوبة تتضاعف كل 3 دقائق (بطيء)
-            
-            if(Game.time > Game.spawner.next) {
-                const angle = Math.random() * Math.PI * 2;
-                const dist = Math.max(W, H) / 1.5 + 50;
-                const ex = Game.player.x + Math.cos(angle) * dist;
-                const ey = Game.player.y + Math.sin(angle) * dist;
-                
-                let type = 'drone';
-                let hp = 10 * difficulty; // صحة منخفضة في البداية
-                let speed = 1.5;
-                let size = 15;
-                let color = '#ef4444';
-                let xp = 1;
+            if(Game.enemies.length > 250) return;
 
-                if(Game.time > 60 && Math.random() < 0.3) { type = 'rusher'; speed = 3; hp *= 0.8; color = '#fbbf24'; }
-                if(Game.time > 120 && Math.random() < 0.1) { type = 'tank'; speed = 1; hp *= 4; size=25; color = '#818cf8'; xp=5; }
+            if(Game.time > Game.spawner.next) {
+                const factor = 1 + (Game.time/60) * 0.5 + (Game.level * 0.1);
+                const angle = Math.random() * Math.PI * 2;
+                const r = Math.max(W, H) / 1.5 + 50;
+                const ex = Game.player.x + Math.cos(angle) * r;
+                const ey = Game.player.y + Math.sin(angle) * r;
                 
-                // الزعيم يظهر كل 3 دقائق
-                const isBoss = Math.floor(Game.time) % 180 === 175 && !Game.enemies.find(e=>e.isBoss);
-                if(isBoss) {
-                    type = 'boss'; hp *= 40; size = 80; speed = 1.2; color = '#9333ea'; xp = 100;
-                    Game.texts.push({x:Game.player.x, y:Game.player.y-100, text:"!! BOSS !!", color:"red", life:3, vy:0});
+                let type = 'drone', hp = 15 * factor, speed = 1.5 + Math.min(3, factor * 0.1);
+                let size = 15, color = '#ef4444', xp = 1;
+
+                const roll = Math.random();
+                if(roll < 0.2) { type = 'rusher'; speed *= 1.6; hp *= 0.6; color = '#fbbf24'; } 
+                if(roll > 0.9) { type = 'tank'; speed *= 0.7; hp *= 4; size=28; color = '#818cf8'; xp=5; } 
+
+                const isElite = Math.floor(Game.time) % 60 > 55 && Math.random() < 0.05;
+                if(isElite) {
+                    type = 'elite'; hp *= 20; size = 60; speed = 1.8; color = '#9333ea'; xp = 50;
+                    Game.texts.push({x:Game.player.x, y:Game.player.y-100, text:"⚠️ ELITE ⚠️", color:"#9333ea", life:3, vy:0});
                 }
 
-                Game.enemies.push({ x: ex, y: ey, hp, maxHp: hp, speed, size, color, xp, isBoss });
-                Game.spawner.next = Game.time + Math.max(0.1, 1 - (Game.time/600)); // Spawn rate cap
+                Game.enemies.push({ x: ex, y: ey, hp, maxHp: hp, speed, size, color, xp, isElite });
+                Game.spawner.next = Game.time + Math.max(0.05, 0.8 - (factor * 0.05));
             }
 
             for(let e of Game.enemies) {
@@ -603,60 +712,63 @@
                 e.x += Math.cos(angle) * e.speed;
                 e.y += Math.sin(angle) * e.speed;
 
-                // تباعد الأعداء (Boids)
-                for(let other of Game.enemies) {
-                    if(e === other) continue;
-                    const dx = e.x - other.x;
-                    const dy = e.y - other.y;
-                    const d = Math.hypot(dx, dy);
-                    if(d < e.size + other.size) {
-                        e.x += dx / d * 0.3;
-                        e.y += dy / d * 0.3;
-                    }
+                if(Math.random() < 0.2) { 
+                   for(let other of Game.enemies) {
+                       if(e === other) continue;
+                       const dx = e.x - other.x;
+                       const dy = e.y - other.y;
+                       if(Math.abs(dx) < 30 && Math.abs(dy) < 30) { 
+                           e.x += dx * 0.1; e.y += dy * 0.1;
+                       }
+                   }
                 }
 
-                if(Game.player.invincible <= 0 && Math.hypot(e.x - Game.player.x, e.y - Game.player.y) < e.size + 15) {
-                    Game.player.hp -= 10; // ضرر أقل
-                    Game.player.invincible = 40; // مناعة أطول
-                    Game.camera.shake = 15;
-                    AudioSys.play('hit');
-                    if(Game.player.hp <= 0) gameOver();
+                if((Game.player.invincible||0) <= 0) {
+                    if(Math.hypot(e.x - Game.player.x, e.y - Game.player.y) < e.size + 15) {
+                        Game.player.hp -= 20;
+                        Game.player.invincible = 30;
+                        Game.camera.shake = 10;
+                        AudioSys.play('hit');
+                        if(Game.player.hp <= 0) gameOver();
+                    }
                 }
             }
         }
 
         function updatePhysics() {
-            // رصاص
             for(let i=Game.bullets.length-1; i>=0; i--) {
                 const b = Game.bullets[i];
                 b.x += b.vx; b.y += b.vy; b.life--;
+                if(Math.abs(b.x - Game.player.x) > W || Math.abs(b.y - Game.player.y) > H) b.life = 0;
+
+                if(b.life <= 0) { Game.bullets.splice(i, 1); continue; }
                 
-                let hit = false;
                 for(let e of Game.enemies) {
                     if(Math.hypot(b.x - e.x, b.y - e.y) < e.size + 10) {
                         damageEnemy(e, Game.player.weapon.dmg, true);
-                        hit = true; break;
+                        spawnExplosion(b.x, b.y, b.color, 3, false); // Small hit sparks
+                        Game.bullets.splice(i, 1);
+                        break;
                     }
                 }
-                if(b.life <= 0 || hit) Game.bullets.splice(i, 1);
             }
 
-            // جواهر
             for(let i=Game.gems.length-1; i>=0; i--) {
                 const g = Game.gems[i];
                 const dist = Math.hypot(g.x - Game.player.x, g.y - Game.player.y);
                 
                 if(dist < Game.player.magnet) {
-                    g.x += (Game.player.x - g.x) * 0.25; // جذب أسرع
-                    g.y += (Game.player.y - g.y) * 0.25;
+                    const pull = 150 / (dist + 10);
+                    g.x += (Game.player.x - g.x) * 0.1 * pull;
+                    g.y += (Game.player.y - g.y) * 0.1 * pull;
                 }
                 
-                if(dist < 25) {
+                if(dist < 30) {
                     if(g.type === 'gold') {
                         const mult = 1 + PERM_UPGRADES.greed.val(Game.data.upgrades.greed || 0);
                         Game.runGold += Math.max(1, Math.floor(g.val * mult));
                         AudioSys.play('coin');
-                        Game.texts.push({x:g.x, y:g.y, text:`+${Math.floor(g.val)}`, color:'#fbbf24', life:0.5, vy:-2});
+                        spawnText(g.x, g.y, `+${Math.floor(g.val)}`, '#fbbf24');
                     } else {
                         Game.xp += g.val;
                         if(Game.xp >= Game.xpNext) levelUp();
@@ -666,32 +778,57 @@
             }
         }
 
-        function damageEnemy(e, amt, showText) {
+        function spawnText(x, y, txt, color, isCrit) {
+            if(Game.texts.length > 50) Game.texts.shift();
+            Game.texts.push({ x, y, text: txt, color, life: 1, vy: -1, isCrit });
+        }
+
+        function damageEnemy(e, amt, canCrit) {
+            let isCrit = false;
+            if(canCrit && Math.random() < (Game.player.weapon.critChance || 0.05)) {
+                amt *= 2.0; isCrit = true;
+            }
+
             e.hp -= amt;
-            if(showText && Math.random() > 0.6) {
-                const div = document.createElement('div');
-                div.className = 'dmg-text text-white text-xl';
-                div.style.left = (W/2 + (e.x - Game.player.x) + Math.random()*20) + 'px';
-                div.style.top = (H/2 + (e.y - Game.player.y) - 20) + 'px';
-                div.innerText = Math.floor(amt);
-                document.body.appendChild(div);
-                setTimeout(() => div.remove(), 700);
+            
+            if(isCrit || Math.random() > 0.7) {
+                spawnText(e.x + (Math.random()*20-10), e.y - 20, Math.floor(amt), isCrit ? '#fbbf24' : '#fff', isCrit);
             }
 
             if(e.hp <= 0) {
                 Game.kills++;
                 AudioSys.play('explode');
-                spawnParticles(e.x, e.y, e.color, 8);
+                spawnExplosion(e.x, e.y, e.color, 12, true); // BIG EXPLOSION
                 
-                const isGold = Math.random() > 0.8 || e.isBoss; // فرصة أكبر للذهب
-                Game.gems.push({ 
-                    x: e.x, y: e.y, 
-                    val: isGold ? (e.isBoss ? 200 : 20) : e.xp, // ذهب أكثر (20 بدلاً من 10)
-                    type: isGold ? 'gold' : 'xp' 
-                });
+                const roll = Math.random();
+                const isGold = roll > 0.92 || e.isElite; 
+                
+                Game.gems.push({ x: e.x, y: e.y, val: isGold ? (e.isElite ? 500 : 10) : e.xp, type: isGold ? 'gold' : 'xp' });
 
                 const idx = Game.enemies.indexOf(e);
                 if(idx > -1) Game.enemies.splice(idx, 1);
+            }
+        }
+
+        function spawnExplosion(x, y, color, count, shockwave) {
+            // Particles
+            for(let i=0; i<count; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const spd = Math.random() * 4 + 2;
+                Game.particles.push({
+                    x, y, 
+                    vx: Math.cos(angle) * spd, 
+                    vy: Math.sin(angle) * spd,
+                    life: 1.0, 
+                    color: color,
+                    type: 'spark'
+                });
+            }
+            // Shockwave
+            if(shockwave) {
+                Game.particles.push({
+                    x, y, radius: 1, maxRadius: 50, life: 1.0, color: color, type: 'shockwave'
+                });
             }
         }
 
@@ -710,18 +847,19 @@
             
             options.forEach(u => {
                 const card = document.createElement('div');
-                card.className = `glass-panel p-4 rounded-xl flex justify-between items-center cursor-pointer card-anim border-l-4`;
+                card.className = `glass-panel p-4 rounded-xl flex justify-between items-center cursor-pointer card-anim border-l-4 hover:bg-white/10 transition-colors`;
                 card.style.borderLeftColor = u.color;
                 card.innerHTML = `
                     <div class="flex flex-col">
                         <span class="font-bold text-lg text-white">${u.name}</span>
                         <span class="text-xs text-gray-400">${u.desc}</span>
                     </div>
-                    <div class="text-2xl text-white font-black">+</div>
+                    <div class="text-xs font-bold px-2 py-1 rounded bg-gray-800" style="color:${u.color}">${u.rarity.toUpperCase()}</div>
                 `;
                 card.onclick = () => {
                     applyInGameUpgrade(u);
                     setScreen('GAME');
+                    saveCurrentRun();
                 };
                 div.appendChild(card);
             });
@@ -730,12 +868,13 @@
         function applyInGameUpgrade(u) {
             const p = Game.player;
             if(u.id === 'multishot') p.weapon.count++;
-            if(u.id === 'dmg') p.weapon.dmg *= 1.25;
-            if(u.id === 'haste') p.weapon.rate *= 0.85;
-            if(u.id === 'speed') p.speed *= 1.1;
+            if(u.id === 'dmg') p.weapon.dmg *= 1.20;
+            if(u.id === 'haste') p.weapon.rate = Math.max(5, p.weapon.rate * 0.85);
+            if(u.id === 'speed') p.speed = Math.min(12, p.speed * 1.1);
             if(u.id === 'orbit') p.passives.orbit++;
             if(u.id === 'lightning') p.passives.lightning++;
-            if(u.id === 'heal') p.hp = Math.min(p.maxHp, p.hp + p.maxHp * 0.4);
+            if(u.id === 'heal') p.hp = Math.min(p.maxHp, p.hp + p.maxHp * 0.5);
+            if(u.id === 'crit') p.weapon.critChance = (p.weapon.critChance || 0.05) + 0.1;
         }
 
         function render() {
@@ -748,7 +887,8 @@
                 ctx.setTransform(1,0,0,1,0,0);
             }
 
-            ctx.fillStyle = '#0f172a';
+            // Darker BG for contrast
+            ctx.fillStyle = '#050505';
             ctx.fillRect(0,0,W,H);
 
             const p = Game.player;
@@ -756,154 +896,167 @@
             const camY = H/2 - p.y;
             ctx.translate(camX, camY);
 
-            // Grid
-            ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 2;
-            const gs = 100;
+            // --- Enhanced Grid ---
+            ctx.strokeStyle = '#222'; ctx.lineWidth = 1;
+            const gs = 150;
             const sx = Math.floor((p.x - W/2)/gs)*gs, sy = Math.floor((p.y - H/2)/gs)*gs;
             ctx.beginPath();
             for(let x=sx; x<sx+W+gs; x+=gs) { ctx.moveTo(x, p.y-H); ctx.lineTo(x, p.y+H); }
             for(let y=sy; y<sy+H+gs; y+=gs) { ctx.moveTo(p.x-W, y); ctx.lineTo(p.x+W, y); }
             ctx.stroke();
 
-            // Gems
+            // Gems (With Glow)
             Game.gems.forEach(g => {
+                ctx.shadowBlur = 10; ctx.shadowColor = g.type === 'gold' ? '#facc15' : '#00f2ff';
                 ctx.fillStyle = g.type === 'gold' ? '#facc15' : '#00f2ff';
-                ctx.shadowBlur = 10; ctx.shadowColor = ctx.fillStyle;
-                ctx.beginPath(); 
-                ctx.moveTo(g.x, g.y-6); ctx.lineTo(g.x+6, g.y); ctx.lineTo(g.x, g.y+6); ctx.lineTo(g.x-6, g.y);
-                ctx.fill();
+                ctx.beginPath(); ctx.arc(g.x, g.y, 5, 0, Math.PI*2); ctx.fill();
                 ctx.shadowBlur = 0;
             });
 
             // Trail
             p.trail.forEach(t => {
-                ctx.globalAlpha = t.life * 0.4;
-                ctx.fillStyle = p.color;
-                ctx.beginPath(); ctx.arc(t.x, t.y, 10, 0, Math.PI*2); ctx.fill();
+                ctx.globalAlpha = t.life * 0.3; ctx.fillStyle = p.color;
+                ctx.beginPath(); ctx.arc(t.x, t.y, 12, 0, Math.PI*2); ctx.fill();
             });
             ctx.globalAlpha = 1;
 
-            // Player
-            ctx.fillStyle = p.invincible > 0 ? '#fff' : p.color;
+            // Player (With Glow)
             ctx.shadowBlur = 20; ctx.shadowColor = p.color;
+            ctx.fillStyle = p.invincible > 0 ? '#fff' : p.color;
             ctx.beginPath(); ctx.arc(p.x, p.y, 16, 0, Math.PI*2); ctx.fill();
             ctx.shadowBlur = 0;
-            ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = 2;
-            ctx.beginPath(); ctx.arc(p.x, p.y, 22, 0, Math.PI*2); ctx.stroke();
+            // Tech Ring
+            ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.arc(p.x, p.y, 22, Game.time*5, Game.time*5 + 4); ctx.stroke();
 
-            // Orbitals
+            // Orbits
             if(p.passives.orbit > 0) {
                 const spd = Game.time * 3;
                 const count = p.passives.orbit * 2;
                 for(let i=0; i<count; i++) {
                     const a = spd + (i * (Math.PI*2/count));
-                    ctx.fillStyle = '#c084fc'; ctx.shadowBlur = 15; ctx.shadowColor='#c084fc';
-                    ctx.beginPath(); ctx.arc(p.x + Math.cos(a)*110, p.y + Math.sin(a)*110, 8, 0, Math.PI*2); ctx.fill();
-                    ctx.shadowBlur = 0;
+                    ctx.shadowBlur=15; ctx.shadowColor='#c084fc'; ctx.fillStyle = '#c084fc'; 
+                    ctx.beginPath(); ctx.arc(p.x + Math.cos(a)*120, p.y + Math.sin(a)*120, 8, 0, Math.PI*2); ctx.fill();
+                    ctx.shadowBlur=0;
                 }
             }
 
             // Enemies
             Game.enemies.forEach(e => {
+                ctx.save();
+                ctx.translate(e.x, e.y);
+                const angle = Math.atan2(p.y - e.y, p.x - e.x);
+                ctx.rotate(angle);
+                
                 ctx.fillStyle = e.color;
-                ctx.shadowBlur = e.isBoss ? 20 : 0; ctx.shadowColor = e.color;
-                ctx.fillRect(e.x - e.size/2, e.y - e.size/2, e.size, e.size);
-                if(e.isBoss) { ctx.strokeStyle = '#fff'; ctx.lineWidth=3; ctx.strokeRect(e.x-e.size/2, e.y-e.size/2, e.size, e.size); }
-                ctx.shadowBlur = 0;
+                if(e.isElite) { ctx.shadowBlur = 25; ctx.shadowColor = e.color; }
+                
+                // Draw Triangle for visual direction
+                ctx.beginPath();
+                ctx.moveTo(e.size/2, 0);
+                ctx.lineTo(-e.size/2, -e.size/2);
+                ctx.lineTo(-e.size/4, 0);
+                ctx.lineTo(-e.size/2, e.size/2);
+                ctx.closePath();
+                ctx.fill();
+
+                if(e.isElite) ctx.shadowBlur = 0;
+                ctx.restore();
             });
 
             // Bullets
-            ctx.fillStyle = '#fff';
-            ctx.shadowBlur = 10; ctx.shadowColor = '#fff';
+            ctx.globalCompositeOperation = 'lighter'; // Additive blending for glow
             Game.bullets.forEach(b => {
-                ctx.fillStyle = b.color || '#fff'; ctx.shadowColor = b.color || '#fff';
-                ctx.beginPath(); ctx.arc(b.x, b.y, 5, 0, Math.PI*2); ctx.fill();
+                ctx.shadowBlur = 15; ctx.shadowColor = b.color; ctx.fillStyle = b.color;
+                ctx.beginPath(); ctx.arc(b.x, b.y, 4, 0, Math.PI*2); ctx.fill();
             });
             ctx.shadowBlur = 0;
 
-            // Particles
+            // Particles & Explosions
             Game.particles.forEach((pt, i) => {
-                if(pt.type === 'line') {
-                    ctx.strokeStyle = pt.color; ctx.lineWidth = 3; ctx.globalAlpha = pt.life/5;
+                if(pt.type === 'shockwave') {
+                    ctx.strokeStyle = pt.color;
+                    ctx.lineWidth = 3 * pt.life;
+                    ctx.globalAlpha = pt.life;
+                    ctx.beginPath();
+                    ctx.arc(pt.x, pt.y, pt.radius, 0, Math.PI*2);
+                    ctx.stroke();
+                    pt.radius += (pt.maxRadius - pt.radius) * 0.1;
+                    pt.life -= 0.05;
+                } else if (pt.type === 'lightning') {
+                    ctx.strokeStyle = pt.color; ctx.lineWidth = 3; ctx.globalAlpha = pt.life/10;
+                    ctx.shadowBlur = 10; ctx.shadowColor = pt.color;
                     ctx.beginPath(); ctx.moveTo(pt.x1, pt.y1); 
-                    const midX = (pt.x1+pt.x2)/2 + (Math.random()-0.5)*20;
-                    const midY = (pt.y1+pt.y2)/2 + (Math.random()-0.5)*20;
+                    const midX = (pt.x1+pt.x2)/2 + (Math.random()-0.5)*30;
+                    const midY = (pt.y1+pt.y2)/2 + (Math.random()-0.5)*30;
                     ctx.lineTo(midX, midY); ctx.lineTo(pt.x2, pt.y2);
                     ctx.stroke();
                     pt.life--;
-                    if(pt.life<=0) Game.particles.splice(i,1);
                 } else {
-                    pt.x += pt.vx; pt.y += pt.vy; pt.life -= 0.05;
+                    pt.x += pt.vx; pt.y += pt.vy; pt.life -= 0.04;
                     ctx.globalAlpha = pt.life; ctx.fillStyle = pt.color;
-                    ctx.fillRect(pt.x, pt.y, 4, 4);
-                    if(pt.life <= 0) Game.particles.splice(i, 1);
+                    ctx.fillRect(pt.x, pt.y, 5, 5); // Larger sparks
                 }
+                if(pt.life <= 0) Game.particles.splice(i, 1);
             });
+            ctx.globalCompositeOperation = 'source-over';
             ctx.globalAlpha = 1;
+
+            // Damage Numbers
+            Game.texts.forEach((t, i) => {
+                ctx.fillStyle = t.color;
+                ctx.font = t.isCrit ? "900 28px 'Rajdhani'" : "700 18px 'Rajdhani'";
+                ctx.shadowColor = '#000'; ctx.shadowBlur = 4;
+                ctx.fillText(t.text, t.x, t.y);
+                t.y += t.vy; t.life -= 0.02;
+                if(t.life <= 0) Game.texts.splice(i, 1);
+                ctx.shadowBlur = 0;
+            });
 
             ctx.setTransform(1,0,0,1,0,0);
         }
 
-        function spawnParticles(x, y, color, count) {
-            for(let i=0; i<count; i++) {
-                Game.particles.push({
-                    x, y, 
-                    vx: (Math.random()-0.5)*8, vy: (Math.random()-0.5)*8,
-                    life: 1, color
-                });
-            }
-        }
-
         function updateHUD() {
-            const hpPct = (Game.player.hp / Game.player.maxHp) * 100;
+            const hpPct = Math.max(0, (Game.player.hp / Game.player.maxHp) * 100);
             document.getElementById('hpBar').style.width = `${hpPct}%`;
             document.getElementById('hpText').innerText = `${Math.ceil(Game.player.hp)} / ${Math.ceil(Game.player.maxHp)}`;
-            
             const xpPct = (Game.xp / Game.xpNext) * 100;
             document.getElementById('xpBar').style.width = `${xpPct}%`;
-            
             document.getElementById('lvlDisplay').innerText = Game.level;
-            document.getElementById('goldRunDisplay').innerText = Game.runGold;
-            
+            document.getElementById('goldRunDisplay').innerText = Game.runGold.toLocaleString();
             const m = Math.floor(Game.time / 60);
             const s = Math.floor(Game.time % 60);
             document.getElementById('timeDisplay').innerText = `${m}:${s<10?'0'+s:s}`;
         }
 
-        function updateMenuUI() {
-            document.getElementById('totalGold').innerText = Game.data.gold;
-        }
-
         function renderShop() {
             const list = document.getElementById('shopItems');
             list.innerHTML = '';
-            document.getElementById('shopGoldDisplay').innerText = Game.data.gold + " 💎";
-
+            updateGlobalUI();
             Object.keys(PERM_UPGRADES).forEach(key => {
                 const u = PERM_UPGRADES[key];
                 const lvl = Game.data.upgrades[key] || 0;
                 const cost = u.cost(lvl);
                 const isMax = lvl >= u.max;
-
                 const div = document.createElement('div');
-                div.className = "bg-gray-900 p-4 rounded-xl flex justify-between items-center border border-gray-800";
+                div.className = "glass-panel p-4 rounded-xl flex justify-between items-center border-l-2 border-blue-500 mb-2";
                 div.innerHTML = `
-                    <div>
-                        <div class="font-bold text-white text-lg">${u.name} <span class="text-xs text-blue-500">Lv.${lvl}</span></div>
-                        <div class="text-xs text-gray-400 mb-2">${u.desc}</div>
-                        <div class="flex gap-1 h-1">
-                            ${Array(u.max).fill(0).map((_,i) => `<div class="w-2 rounded-full ${i < lvl ? 'bg-yellow-500' : 'bg-gray-700'}"></div>`).join('')}
+                    <div class="flex-1">
+                        <div class="flex items-center gap-2">
+                            <span class="font-bold text-white text-lg font-rajdhani">${u.name}</span>
+                            <span class="text-[10px] bg-blue-900 px-2 py-0.5 rounded text-blue-200">LVL ${lvl}</span>
                         </div>
+                        <div class="text-xs text-gray-400 mt-1">${u.desc}</div>
                     </div>
-                    <button class="px-4 py-2 rounded-lg font-bold text-sm transition-all active:scale-95 ${Game.data.gold >= cost && !isMax ? 'bg-yellow-600 hover:bg-yellow-500 text-black' : 'bg-gray-800 text-gray-600 cursor-not-allowed'}">
-                        ${isMax ? 'MAX' : cost + '💎'}
+                    <button class="ml-4 px-5 py-3 rounded-lg font-bold text-sm transition-all active:scale-95 border border-white/10 ${Game.data.gold >= cost && !isMax ? 'bg-yellow-600 hover:bg-yellow-500 text-white shadow-lg' : 'bg-gray-800 text-gray-500 cursor-not-allowed'}">
+                        ${isMax ? 'MAX' : cost + ' 💎'}
                     </button>
                 `;
                 if(Game.data.gold >= cost && !isMax) {
                     div.querySelector('button').onclick = () => {
                         Game.data.gold -= cost;
                         Game.data.upgrades[key] = (Game.data.upgrades[key] || 0) + 1;
-                        saveGame();
+                        saveProfile();
                         AudioSys.play('coin');
                         renderShop();
                     };
@@ -918,27 +1071,32 @@
             HEROES.forEach(h => {
                 const unlocked = Game.data.unlockedHeroes.includes(h.id);
                 const selected = Game.data.selectedHero === h.id;
-                
                 const div = document.createElement('div');
-                div.className = `glass-panel p-4 rounded-xl flex flex-col items-center gap-2 relative cursor-pointer card-anim ${selected ? 'border-cyan-500 bg-cyan-900/20' : (unlocked ? 'border-gray-700' : 'opacity-50 grayscale')}`;
+                div.className = `glass-panel p-4 rounded-xl flex items-center gap-4 relative cursor-pointer active:scale-95 transition-transform ${selected ? 'border-green-500 bg-green-900/10' : (unlocked ? 'border-gray-700' : 'opacity-60 grayscale')}`;
                 div.innerHTML = `
-                    <div class="text-5xl mb-2">${h.img}</div>
-                    <div class="font-black text-white text-xl">${h.name}</div>
-                    <div class="text-xs text-gray-400 text-center h-10">${h.desc}</div>
-                    ${!unlocked ? `<button class="bg-yellow-600 text-black font-bold px-6 py-2 rounded-full mt-2 w-full shadow-lg hover:bg-yellow-500">شراء ${h.cost}</button>` : 
-                    (selected ? '<div class="text-cyan-400 font-bold mt-2 text-sm border border-cyan-500 px-3 rounded-full">مستخدم حالياً</div>' : '<div class="text-gray-500 mt-2 text-sm">اضغط للاختيار</div>')}
+                    <div class="text-4xl bg-black/50 p-3 rounded-full border border-white/10">${h.img}</div>
+                    <div class="flex-1">
+                        <div class="font-black text-white text-lg tracking-wide">${h.name}</div>
+                        <div class="text-xs text-gray-400">${h.desc}</div>
+                    </div>
+                    <div>
+                         ${!unlocked 
+                            ? `<button class="bg-yellow-600 text-white font-bold px-4 py-2 rounded-lg text-sm shadow-lg">${h.cost} 💎</button>` 
+                            : (selected 
+                                ? '<div class="text-green-400 font-bold text-xs border border-green-500 px-2 py-1 rounded tracking-widest">ACTIVE</div>' 
+                                : '<div class="text-gray-500 text-xs border border-gray-600 px-2 py-1 rounded tracking-widest">SELECT</div>')}
+                    </div>
                 `;
-                
                 div.onclick = () => {
                     if(unlocked) {
                         Game.data.selectedHero = h.id;
-                        saveGame();
+                        saveProfile();
                         renderHeroes();
                     } else if(Game.data.gold >= h.cost) {
                         Game.data.gold -= h.cost;
                         Game.data.unlockedHeroes.push(h.id);
                         Game.data.selectedHero = h.id;
-                        saveGame();
+                        saveProfile();
                         AudioSys.play('coin');
                         renderHeroes();
                     }
@@ -949,29 +1107,17 @@
 
         function gameOver() {
             setScreen('GAMEOVER');
+            clearSavedRun();
             Game.data.gold += Game.runGold;
-            saveGame();
+            saveProfile();
             document.getElementById('endStatsTime').innerText = document.getElementById('timeDisplay').innerText;
             document.getElementById('endStatsKills').innerText = Game.kills;
-            document.getElementById('endStatsGold').innerText = Game.runGold;
+            document.getElementById('endStatsGold').innerText = Game.runGold.toLocaleString();
         }
 
-        function resize() { 
-            W = canvas.width = window.innerWidth; 
-            H = canvas.height = window.innerHeight; 
-        }
-
-        window.app = { 
-            resetSave: () => { 
-                if(confirm('هل أنت متأكد من حذف كل تقدمك؟')) {
-                    localStorage.clear(); 
-                    location.reload(); 
-                }
-            } 
-        };
+        function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
         
         window.onload = init;
-
     </script>
 </body>
 </html>
